@@ -6,6 +6,7 @@ import type { GameInfo } from "../src/espn";
 import {
   BOOKIE_ID,
   buildSportBoards,
+  teamLogosEnabled,
   etParts,
   filterGames,
   fmtEt,
@@ -149,5 +150,15 @@ describe("sport boards (the pinned board + daily recap split)", () => {
     const humanWc = rows.filter((r) => r.user_id !== BOOKIE_ID && r.league === "wc");
     const field = sportBoardField(buildSportBoards(humanWc)[0]);
     expect(field.value).not.toContain("to beat");
+  });
+});
+
+describe("teamLogosEnabled", () => {
+  it("is off unless TEAM_LOGOS is exactly on", () => {
+    expect(teamLogosEnabled({})).toBe(false);
+    expect(teamLogosEnabled({ TEAM_LOGOS: "off" })).toBe(false);
+    expect(teamLogosEnabled({ TEAM_LOGOS: "yes" })).toBe(false);
+    expect(teamLogosEnabled({ TEAM_LOGOS: "on" })).toBe(true);
+    expect(teamLogosEnabled({ TEAM_LOGOS: " ON " })).toBe(true);
   });
 });

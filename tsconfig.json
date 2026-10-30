@@ -10,7 +10,5 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true
   },
-  "include": ["src/**/*.ts", "test/**/*.ts"],
-  "//exclude": "*.verify.ts runs under Node (node:fs, node:crypto), not the Worker runtime. Typechecking it here would mean adding @types/node to a project whose global environment is @cloudflare/workers-types, and the two disagree about fetch/console/Buffer. Same status as scripts/*.mjs: exercised by `npm run verify:migration`, not by `npm run check`.",
-  "exclude": ["test/**/*.verify.ts"]
+  "include": ["src/**/*.ts", "test/**/*.ts"]
 }

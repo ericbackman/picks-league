@@ -14,8 +14,8 @@ export interface Env {
   // well as) the cron trigger. Optional in the type so the bot typechecks before
   // it is set, but the route fails CLOSED while it is missing (see tickroute.ts).
   TICK_KEY?: string;
-  // Optional var: "off" posts game cards without the ESPN team logos (README,
-  // "Team logos"). Anything else, or unset, shows them.
+  // Optional var: "on" adds the teams' logos (ESPN-hosted, the leagues' marks)
+  // to game cards. Unset or anything else = text-only cards (README, "Team logos").
   TEAM_LOGOS?: string;
 }
 
@@ -123,8 +123,11 @@ async function rest(
     await sleep(waitMs);
     return rest(env, method, path, body, attempt + 1);
   }
+  // The error text reaches Workers Logs. A webhook path carries the interaction
+  // token (valid 15 minutes), so it is redacted before it can be logged.
+  const safePath = path.replace(/^(\/webhooks\/\d+\/)[^/]+/, "$1<token>");
   throw new Error(
-    `Discord ${method} ${path}: HTTP ${resp.status} ${await resp.text().catch(() => "")}`
+    `Discord ${method} ${safePath}: HTTP ${resp.status} ${await resp.text().catch(() => "")}`
   );
 }
 
@@ -141,6 +144,15 @@ export async function editMessage(
   payload: object
 ): Promise<void> {
   await rest(env, "PATCH", `/channels/${channelId}/messages/${messageId}`, payload);
+}
+
+/** Delete one of the bot's own messages (a 404 means it is already gone). */
+export async function deleteMessage(env: Env, channelId: string, messageId: string): Promise<void> {
+  try {
+    await rest(env, "DELETE", `/channels/${channelId}/messages/${messageId}`);
+  } catch (err) {
+    if (!String(err).includes("HTTP 404")) throw err;
+  }
 }
 
 /** Open (or fetch the existing) DM channel with a user; returns its channel id. */

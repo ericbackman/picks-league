@@ -19,7 +19,7 @@ CREATE TABLE IF NOT EXISTS games (
     home_logo  TEXT,
     start_utc  TEXT NOT NULL,
     odds       TEXT,                     -- ESPN summary line, e.g. "PIT -149"
-    home_ml    INTEGER,                  -- American moneylines (DraftKings close)
+    home_ml    INTEGER,                  -- American moneylines from ESPN's scoreboard odds provider
     away_ml    INTEGER,
     draw_ml    INTEGER,                  -- soccer three-way market only
     message_id TEXT,
@@ -48,8 +48,7 @@ CREATE TABLE IF NOT EXISTS picks (
 CREATE TABLE IF NOT EXISTS pick_events (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
     game_id     TEXT NOT NULL,
-    user_id     TEXT NOT NULL,
-    user_name   TEXT NOT NULL,
+    user_id     TEXT NOT NULL,           -- no display name: replay is by id (see picks)
     side        TEXT NOT NULL,           -- home | away | draw
     created_utc TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
 );

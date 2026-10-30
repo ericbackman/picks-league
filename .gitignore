@@ -17,7 +17,7 @@ Thumbs.db
 .vscode/
 .idea/
 
-# Migration exports — real Discord ids/names, never committed
+# Local database exports hold real Discord ids and names
 .migration/
 
 # Secrets: wrangler 4 loads .env, .env.local and .env.<name> as Worker secrets

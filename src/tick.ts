@@ -150,10 +150,10 @@ function toMlGame(game: GameInfo): MlGame {
 }
 
 // One side's odds three ways for the non-bettors: American line, fair win
-// chance, and what a correct pick pays (which IS the score — see scoring.ts).
+// chance, and what a correct pick scores (see scoring.ts). Points, not money.
 function sideOdds(label: string, ml: number | null, prob: number, payout: number): string {
   const american = ml !== null ? ` ${fmtMl(ml)}` : "";
-  return `${label}${american} · ${fmtPct(prob)} · pays **${payout}**`;
+  return `${label}${american} · ${fmtPct(prob)} · scores **${payout}**`;
 }
 
 export function gameLine(game: GameInfo): string {
@@ -174,12 +174,9 @@ export function gameLine(game: GameInfo): string {
         part("away", game.away, game.awayMl),
       ]
     : [part("away", game.away, game.awayMl), part("home", game.home, game.homeMl)];
-  return `${line}\n💰 ${parts.join("  |  ")}`;
+  return `${line}\n📊 ${parts.join("  |  ")}`;
 }
 
-// Exported for the v2 ESPN plugin, which reuses these renderers verbatim so the
-// cards stay byte-identical across the migration. The dependency is temporary and
-// points the wrong way on purpose: when v1 is deleted these move into the plugin.
 export function gameButtons(game: GameInfo): object[] {
   const away = { type: 2, style: 2, label: game.away, custom_id: `pick:${game.gameId}:away` };
   const home = { type: 2, style: 1, label: game.home, custom_id: `pick:${game.gameId}:home` };
@@ -326,7 +323,7 @@ export async function syncDmCard(env: Env, store: Store, userId: string, day: st
     try {
       await editMessage(env, existing.dm_channel_id, existing.message_id, { embeds: [embed] });
     } catch (err) {
-      console.warn(`DM card edit failed for ${userId}:`, err);
+      console.warn("DM card edit failed:", err);
     }
     return;
   }
@@ -337,7 +334,7 @@ export async function syncDmCard(env: Env, store: Store, userId: string, day: st
   try {
     dmChannel = await createDmChannel(env, userId);
   } catch (err) {
-    console.warn(`couldn't open DM with ${userId}:`, err);
+    console.warn("couldn't open a DM (closed DMs?):", err);
     return;
   }
   if (!(await store.claimDmCard(userId, day, dmChannel))) {
@@ -348,7 +345,7 @@ export async function syncDmCard(env: Env, store: Store, userId: string, day: st
       try {
         await editMessage(env, now.dm_channel_id, now.message_id, { embeds: [embed] });
       } catch (err) {
-        console.warn(`DM card edit (post-claim) failed for ${userId}:`, err);
+        console.warn("DM card edit (post-claim) failed:", err);
       }
     }
     return;
@@ -360,7 +357,7 @@ export async function syncDmCard(env: Env, store: Store, userId: string, day: st
     // DMs closed / send blocked: release the claim so we're not stuck, and stop —
     // nothing was delivered, so there's nothing to spam.
     await store.clearDmCard(userId, day);
-    console.warn(`DM card create failed for ${userId} (DMs closed?):`, err);
+    console.warn("DM card create failed (DMs closed?):", err);
   }
 }
 
@@ -374,7 +371,7 @@ async function refreshDmCardsForDay(env: Env, store: Store, day: string): Promis
         embeds: [dayCardEmbed(rows, day, "🎟️ Your picks")],
       });
     } catch (err) {
-      console.warn(`couldn't refresh DM card for ${card.user_id}:`, err);
+      console.warn("couldn't refresh a DM card:", err);
     }
   }
 }
@@ -477,9 +474,13 @@ export async function updateLeaderboard(env: Env, store: Store, channelId: strin
 
 // ---------- slate posting ----------
 
-/** TEAM_LOGOS=off posts text-only cards; the logos are never stored either. */
+/**
+ * Team logos are opt-in (TEAM_LOGOS=on). They are the leagues' and clubs' marks,
+ * hosted by ESPN; showing them is the operator's choice. Off, the URLs are never
+ * stored either.
+ */
 export function teamLogosEnabled(env: Pick<Env, "TEAM_LOGOS">): boolean {
-  return (env.TEAM_LOGOS ?? "on").trim().toLowerCase() !== "off";
+  return (env.TEAM_LOGOS ?? "off").trim().toLowerCase() === "on";
 }
 
 /**
@@ -538,9 +539,11 @@ export async function postSlate(env: Env, store: Store, channelId: string, day: 
             description:
               `**${fresh.length}** games today. Tap a team to call the winner — ` +
               "change your mind anytime until the game starts.\n" +
-              "Correct picks **pay their odds**: chalk pays a little, dogs pay a lot. " +
+              "Correct picks **score their odds**: chalk scores a little, dogs score a lot. " +
+              "Points only: no money, no prizes. " +
               `${BOOKIE_NAME} picks every favorite — beat it or be it. ` +
-              "`/leaderboard` for standings.",
+              "`/leaderboard` for standings. Taps record your Discord name for the " +
+              "standings; `/forgetme` erases them.",
             color: EMBED_COLOR,
           },
         ],

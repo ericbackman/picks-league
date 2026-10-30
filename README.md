@@ -4,7 +4,9 @@ A daily sports picks league for your Discord server, with no bot process to keep
 
 [![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/ericbackman/picks-league)
 
-Every morning it posts the day's NBA, NHL, MLB and NFL games with a button per team. Friends tap to call winners, picks lock at tip-off, finals grade themselves off the scoreboard, and a pinned standings board tracks the season. A correct pick pays its fair odds, so calling an upset is worth more than calling a favourite, and a synthetic player called **The Bookie** picks every favourite so there is always a baseline to beat.
+Every morning it posts the day's NBA, NHL, MLB and NFL games with a button per team. Friends tap to call winners, picks lock at tip-off, finals grade themselves off the scoreboard, and a pinned standings board tracks the season. A correct pick scores its fair odds, so calling an upset is worth more than calling a favourite, and a synthetic player called **The Bookie** picks every favourite so there is always a baseline to beat.
+
+This is a points game. The bot holds no money, takes no bets and pays nothing out; the betting lines are shown only to set each pick's score. Do not add a prize, pot or entry fee: that turns it into a betting pool, which is regulated wherever you live.
 
 It runs as one Cloudflare Worker with a D1 (SQLite) database. At friends-server scale that fits inside Cloudflare's free tier.
 
@@ -35,7 +37,7 @@ You need a Discord application and a Cloudflare account. Both are free.
 
 ### 1. Create the Discord application
 
-1. [Discord Developer Portal](https://discord.com/developers/applications), **New Application**, give it a name.
+1. [Discord Developer Portal](https://discord.com/developers/applications), **New Application**, give it a name. Discord's brand rules say the name may not contain "Discord".
 2. On **General Information** note the **Application ID** and **Public Key**.
 3. On the **Bot** tab, **Reset Token** and copy the token. It is shown once. Treat it like a password.
 4. Invite the bot to your server with this link, with your Application ID filled in. The permission number is Send Messages plus Embed Links.
@@ -43,6 +45,7 @@ You need a Discord application and a Cloudflare account. Both are free.
    `https://discord.com/oauth2/authorize?client_id=<APPLICATION_ID>&scope=bot+applications.commands&permissions=18432`
 
 5. Find your server's id: in Discord, **Server Settings, Widget**, or right-click the server icon with Developer Mode on.
+6. Discord's Developer Terms require every app to have a privacy policy. Fill in the two placeholders in [PRIVACY.example.md](PRIVACY.example.md), commit it to your fork, and paste the file's URL into **General Information, Privacy Policy URL**.
 
 ### 2. Deploy the Worker
 
@@ -79,7 +82,7 @@ npx wrangler secret put GUILD_ID
 
 **Leagues** are a live setting, changed with `/picksetup`, not a redeploy. The value is whitespace-separated: `nba` takes the whole league, `mlb:TOR` only games involving that team, `mlb:TOR+NYY` several teams. Default: `nba nhl mlb nfl`. Keys: `nba`, `nhl`, `mlb`, `nfl`, `wc` (FIFA World Cup, with a Draw button). A full MLB day is about 15 games; filter it if that floods your channel.
 
-**Team logos.** Game cards show the two teams' logos from ESPN's CDN, fetched by Discord's own image proxy. Set the `TEAM_LOGOS` variable to `off` (in `wrangler.jsonc` under `vars`, or as a secret) for text-only cards; the logo URLs are then never stored either.
+**Team logos** are off by default: cards are text. Setting the `TEAM_LOGOS` variable to `on` (in `wrangler.jsonc` under `vars`, or as a secret) adds the two teams' logos, which are the leagues' and clubs' marks and artwork, hosted on ESPN's CDN and fetched by Discord's image proxy. Whether to show them is your choice as the operator; the bot holds no licence for them.
 
 **Slate time.** `SLATE_HOUR` in `src/tick.ts` (default 6, Eastern) is the earliest hour the day's slate posts.
 
@@ -89,29 +92,33 @@ npx wrangler secret put GUILD_ID
 
 ## Scoring
 
-A correct pick pays its fair decimal odds, like a one-unit bet. The moneylines ESPN publishes with each game are stripped of the bookmaker's margin into fair probabilities ([src/odds.ts](src/odds.ts)), and a winning pick scores `1 / p`, to one decimal, capped at 10, with 2.0 as the coin-flip fallback when no line exists. The card shows each side's line, win probability and payout, and the payout shown is exactly what the pick scores. Soccer's three-way market is handled.
+A correct pick scores its fair decimal odds, the way a one-unit bet would pay. The moneylines ESPN publishes with each game are stripped of the bookmaker's margin into fair probabilities ([src/odds.ts](src/odds.ts)), and a winning pick scores `1 / p`, to one decimal, capped at 10, with 2.0 as the coin-flip fallback when no line exists. The card shows each side's line, win probability and score, and the number shown is exactly what the pick scores. Soccer's three-way market is handled.
 
 `pointsFor()` in [src/scoring.ts](src/scoring.ts) is the tuning seam. It is pure, deterministic, finite and non-negative, and the tests pin that contract, so a cap, league weights or playoff multipliers are safe to add there.
 
 ## Data and privacy
 
-What the bot stores, all in your own D1 database and nowhere else:
+What the bot stores, in your own D1 database:
 
 - per game: the ESPN game id, teams, start time, lines, scores, the message id of its card;
 - per pick: the player's Discord user id and display name, the side, the points once graded;
-- an audit log of every tap (user id, name, side, server timestamp), so a "but I picked the draw!" dispute can be settled by replaying what was tapped and when;
+- an audit log of every tap (user id, side, server timestamp; no name), so a "but I picked the draw!" dispute can be settled by replaying what was tapped and when;
 - the id of each player's private DM card.
 
-`/forgetme` deletes all of it for the player who runs it, including their rows in the audit log, and refreshes the standings. Nothing is sent anywhere except Discord's API and ESPN's public scoreboard, which receives only the date and league being asked for. There is no analytics and no third-party service.
+Discord also holds what the bot posts: display names on the standings, recaps and finished game cards in your channel, and each player's pick card in their DMs. Your Cloudflare Workers logs keep error lines for a few days (3 on the free plan, 7 on paid); the bot writes no names or ids into them. ESPN receives only the date and league being asked for. No analytics and no service beyond Discord, ESPN's scoreboard and Cloudflare itself.
 
-Picks here are for bragging rights. The bot holds no money, takes no bets and pays nothing out; the odds are a scoring rule, not a market.
+Data is kept until a player runs `/forgetme` or you delete the database. `/forgetme` deletes the player's picks, audit-log rows and DM pick cards (the messages too) and refreshes the standings; names already on finished game cards and past recaps stay, like any channel history. A player who has left the server asks you, and [docs/OPERATIONS.md](docs/OPERATIONS.md) has the recipe. [PRIVACY.example.md](PRIVACY.example.md) says all of this in a form you can publish.
+
+If you run this for a business, a monetised community or a large public server rather than a group of friends, the household exemptions in privacy law may not cover you. Get real advice.
 
 ## Known limits
 
-- **ESPN's scoreboard API is public but undocumented.** There is no key, no terms page and no change notice. If ESPN reshapes the payload, grading stalls and the logs say which league; that is the only part of this bot that can break without a deploy. Logos are ESPN's images, shown by URL.
-- **One server per deployment**, by design. The Worker ignores interactions from any other server, and slash commands are registered to that server. Running it for two servers is two deployments.
+- **ESPN's scoreboard endpoint is public but undocumented, and ESPN's terms are not permissive.** There is no key and no change notice, so if ESPN reshapes the payload, grading stalls and the logs say which league. More important: espn.com is covered by the [Disney Terms of Use](https://disneytermsofuse.com/english/), which grant personal, non-commercial use only and bar automated access. Whether those terms reach this endpoint is not settled anywhere public. Each deployment makes these calls under its operator's own responsibility; keep it private and non-commercial, and do not build a business on it.
+- **One server per deployment**, by design. With `GUILD_ID` set, the Worker ignores interactions from any other server, and slash commands are registered to that server only. Running it for two servers is two deployments.
 - **Everything is Eastern Time**, because that is how North American sports schedules are published. A game's "day" is its ET calendar day.
-- **Free-tier numbers.** The tick makes a handful of requests every 15 minutes; a 15-game slate posts 15 messages with pacing between them. That is well under the free plan's 100,000 requests a day and 50 subrequests per invocation. D1 rows: a few hundred games and a few thousand picks per season.
+- **Free-tier numbers.** The tick makes a handful of requests every 15 minutes, and each game card is one message with pacing between them. That is well under the free plan's 100,000 requests a day. A busy spring day with three leagues can pass the 50 subrequests one invocation may make; the rest post on the next tick. D1 holds a few thousand games and tens of thousands of picks a season with all four leagues, far under its 500 MB.
+
+picks-league is an independent project, not affiliated with or endorsed by Discord, ESPN, Cloudflare, the NBA, NHL, MLB, NFL, FIFA or any team. Team names and logos belong to their owners.
 
 ## Development
 

@@ -1,4 +1,4 @@
-// A D1Database backed by real SQLite (node:sqlite), for testing the v2 store.
+// A D1Database backed by real SQLite (node:sqlite), for testing the store.
 //
 // Deliberately NOT a mock. D1 *is* SQLite, so running the store's actual SQL
 // against a real engine tests the queries — ON CONFLICT clauses, the JOINs, the

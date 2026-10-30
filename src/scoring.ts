@@ -22,8 +22,8 @@ export interface ScorableGame extends MlGame {
  * returns a finite number >= 0, deterministic. Wrong picks never reach
  * here — they always score 0.
  *
- * v2 ("real scoring"): a correct pick pays its fair decimal odds, like a
- * 1-unit bet — vig-stripped from the stored DraftKings moneylines
+ * A correct pick scores its fair decimal odds, like a
+ * 1-unit bet — vig-stripped from the stored moneylines ESPN's scoreboard carries
  * (home_ml/away_ml/draw_ml), capped at 10, coin-flip 2.0 when no market
  * exists. The payout shown on the slate IS this number, so keep display
  * and scoring in sync (both call payoutFor).

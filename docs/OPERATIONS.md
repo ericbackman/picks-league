@@ -37,7 +37,7 @@ A game ESPN marks as cancelled or postponed grades as `void`: nobody scores, the
 | Grading stuck for one league across many ticks, no error | ESPN reshaped the scoreboard payload; the parser skips what it cannot read rather than guess | Compare a live response for that league with the fixture in `test/espn.test.ts`, update `parseScoreboard`, add the new fixture, deploy | The league grades on the next tick |
 | A day graded but no recap posted | The recap post failed (Discord outage, permissions). The flag `recap_<day>` is only set after a successful post, and fully graded recent days are re-swept, so it retries every tick | If it keeps failing, `tail` shows `recap <day> failed` with Discord's reply; fix the permission. To force one by hand: delete the `recap_<day>` row | The recap appears, the row reads `1` |
 | A card never changed to `Final:` | The message edit failed but grading committed | Cosmetic. Points are correct in D1 and on the board | `SELECT * FROM games WHERE game_id = ...` shows `graded = 1` |
-| Cards without team logos | ESPN dropped `team.logo` from the payload, or its CDN started refusing Discord's image proxy | Cosmetic; picks and scoring are unaffected. `TEAM_LOGOS=off` makes it deliberate | Next slate |
+| Cards without team logos when `TEAM_LOGOS=on` | ESPN dropped `team.logo` from the payload, or its CDN started refusing Discord's image proxy | Cosmetic; picks and scoring are unaffected. Logos are off unless you turned them on | Next slate |
 | Slash command shows old options | Commands changed without `npm run register` | `npm run register` | Discord's autocomplete shows the new shape |
 | Discord refuses to save the interactions URL | Worker not deployed, wrong `DISCORD_PUBLIC_KEY`, or the secret not set yet | Set the secrets, redeploy, retry | The portal saves the URL |
 | `wrangler deploy` fails with an auth error | The API token lacks Workers Scripts or D1 edit permission | Re-run `npx wrangler login`, or fix the token's scopes | Deploy succeeds |
@@ -82,11 +82,35 @@ npx wrangler d1 execute DB --remote --command "PRAGMA table_info(games)"
 | Default leagues for a fresh `/picksetup` | `DEFAULT_LEAGUES` in `src/tick.ts` | `nba nhl mlb nfl` | The live value is the `leagues` setting |
 | Slate hour (ET) | `SLATE_HOUR` in `src/tick.ts` | 6 | 0 to 23 |
 | Tick cadence | `triggers.crons` in `wrangler.jsonc` | every 15 minutes | Keep it 15 minutes or faster for timely grading; never encode an ET hour in the cron, DST is handled inside the tick |
-| Team logos | `TEAM_LOGOS` var | on | `off` for text-only cards |
+| Team logos | `TEAM_LOGOS` var | off | `on` shows the teams' logos from ESPN's CDN; they are the leagues' marks, your call |
 
-## 8. Do not
+## 8. Erasure on request
 
-- Update or delete `pick_events` by hand. The only deletion is a player's own `/forgetme`.
+A player who is still in the server runs `/forgetme`. One who has left, or who asks you another way, gets the same deletion by hand. Discord's Developer Terms require you to honour such a request, and to delete stored data when Discord or the law asks.
+
+```bash
+npx wrangler d1 execute DB --remote --command "DELETE FROM picks WHERE user_id = '<USER_ID>'; DELETE FROM pick_events WHERE user_id = '<USER_ID>'; DELETE FROM dm_cards WHERE user_id = '<USER_ID>'"
+```
+
+Then `/leaderboard` in Discord to refresh the pinned standings. Names already on finished game cards and past recaps are channel history and stay unless you delete those messages yourself.
+
+## 9. Shutting down
+
+The Developer Terms also require deleting stored Discord data when the app stops operating.
+
+```bash
+npx wrangler d1 delete picks-league
+```
+
+```bash
+npx wrangler delete
+```
+
+Then delete the application in the Discord Developer Portal. Workers logs age out on their own within a week.
+
+## 10. Do not
+
+- Update `pick_events` by hand. Rows are deleted only for a player's own erasure (section 8 or `/forgetme`), never edited.
 - Change `games` or `picks` by hand except through the regrade recipe above: every row is a live standings number your friends can see.
 - Let a Discord id become a number anywhere. They are strings end to end.
 - Put `DISCORD_TOKEN` in `wrangler.jsonc`. Secrets only.

@@ -47,7 +47,7 @@ describe("daysFullyGraded", () => {
   });
 
   it("spans leagues — a day is done when every league's games are", async () => {
-    // the private original posts several leagues on one day; the recap covers all of them.
+    // Several leagues post on one day; the recap covers all of them.
     game("g1", "2026-06-13", 1, "nba");
     game("g2", "2026-06-13", 0, "mlb");
     expect(await store.daysFullyGraded()).toEqual([]);

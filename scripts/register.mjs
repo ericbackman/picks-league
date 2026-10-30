@@ -54,7 +54,7 @@ const commands = [
   { name: "slate", description: "Post today's games now" },
   { name: "leaderboard", description: "Season standings" },
   { name: "mypicks", description: "Your picks for today (only you see this)" },
-  { name: "forgetme", description: "Delete everything this bot stores about you (asks you to confirm)" },
+  { name: "forgetme", description: "Delete your picks, tap history and DM cards here (asks you to confirm)" },
 ];
 
 const resp = await fetch(

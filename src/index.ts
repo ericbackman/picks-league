@@ -5,6 +5,7 @@
 // slate + grading (see tick.ts).
 
 import {
+  deleteMessage,
   displayName,
   EPHEMERAL,
   editOriginalResponse,
@@ -133,7 +134,9 @@ async function handleSlate(env: Env, store: Store, interaction: any, ctx: Execut
         console.error("slate failed:", err);
         text = "⚠️ Something broke posting the slate — check the worker logs.";
       }
-      await editOriginalResponse(env, interaction.token, { content: text });
+      await editOriginalResponse(env, interaction.token, { content: text }).catch((err) =>
+        console.error("slate reply failed:", err)
+      );
     })()
   );
   return json({ type: ResponseType.DEFERRED_CHANNEL_MESSAGE, data: { flags: EPHEMERAL } });
@@ -164,7 +167,9 @@ async function handleLeaderboard(
         console.error("leaderboard refresh failed:", err);
         text = "⚠️ Couldn't refresh the standings — check the worker logs.";
       }
-      await editOriginalResponse(env, interaction.token, { content: text });
+      await editOriginalResponse(env, interaction.token, { content: text }).catch((err) =>
+        console.error("leaderboard reply failed:", err)
+      );
     })()
   );
   return json({ type: ResponseType.DEFERRED_CHANNEL_MESSAGE, data: { flags: EPHEMERAL } });
@@ -181,16 +186,19 @@ async function handleMypicks(store: Store, interaction: any): Promise<Response> 
 
 // ---------- /forgetme ----------
 // Deletes everything the bot stores about the requesting user: their picks,
-// every tap in the audit log and their DM cards. Two steps so a mis-tap cannot
-// wipe a season: the command shows a confirm button, the button does the work.
+// every tap in the audit log, and their DM cards (the rows AND the messages in
+// their DMs). What it cannot reach, and the prompt says so: names already written
+// into finished game cards and past recaps in the channel. Two steps so a mis-tap
+// cannot wipe a season: the command shows a confirm button, the button does the work.
 
 function handleForgetme(): Response {
   return json({
     type: ResponseType.CHANNEL_MESSAGE,
     data: {
       content:
-        "This deletes **every pick you have ever made here**, your tap history and your " +
-        "pick cards, and drops you from the standings. It cannot be undone.",
+        "This deletes **every pick you have ever made here**, your tap history and the " +
+        "pick cards in your DMs, and drops you from the standings. Your name stays on " +
+        "finished game cards and past recaps already posted in the channel. It cannot be undone.",
       flags: EPHEMERAL,
       components: [
         {
@@ -209,6 +217,15 @@ async function handleForgetConfirm(
   ctx: ExecutionContext
 ): Promise<Response> {
   const uid = userId(interaction);
+  // The DM messages first, while the rows that locate them still exist. A card
+  // that cannot be deleted (DMs since closed) is logged, not fatal.
+  for (const card of await store.dmCardsForUser(uid)) {
+    try {
+      await deleteMessage(env, card.dm_channel_id, card.message_id);
+    } catch (err) {
+      console.warn("couldn't delete a DM card during /forgetme:", err);
+    }
+  }
   const removed = await store.forgetUser(uid);
   // The pinned standings still show them until the next refresh; do it now.
   const channelId = await store.getSetting("channel_id");

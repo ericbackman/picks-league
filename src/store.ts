@@ -44,10 +44,11 @@ export interface GradedRow {
 
 // One row per accepted button tap — append-only history behind the current pick.
 export interface PickEvent {
+  // No display name here on purpose: the audit log is replayed by user id, and
+  // keeping every nickname a player ever had is more than a dispute needs.
   id: number;
   game_id: string;
   user_id: string;
-  user_name: string;
   side: string;
   created_utc: string;
 }
@@ -228,8 +229,8 @@ export class Store {
         )
         .bind(gameId, userId, userName, side),
       this.db
-        .prepare("INSERT INTO pick_events(game_id, user_id, user_name, side) VALUES(?,?,?,?)")
-        .bind(gameId, userId, userName, side),
+        .prepare("INSERT INTO pick_events(game_id, user_id, side) VALUES(?,?,?)")
+        .bind(gameId, userId, side),
     ]);
   }
 
@@ -307,6 +308,15 @@ export class Store {
   }
 
   // ---------- DM pick cards ----------
+
+  /** Every DM card a user has, so /forgetme can delete the messages themselves. */
+  async dmCardsForUser(userId: string): Promise<DmCard[]> {
+    const { results } = await this.db
+      .prepare("SELECT * FROM dm_cards WHERE user_id = ?")
+      .bind(userId)
+      .all<DmCard>();
+    return results;
+  }
 
   async getDmCard(userId: string, day: string): Promise<DmCard | null> {
     return await this.db
