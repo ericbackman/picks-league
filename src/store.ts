@@ -1,6 +1,5 @@
-// D1 persistence — direct port of the original bot's picks/store.py. D1 is SQLite,
-// so the queries are identical; ids are TEXT because Discord snowflakes
-// don't fit safely in JS numbers.
+// D1 persistence. D1 is SQLite; ids are TEXT because Discord snowflakes don't
+// fit safely in JS numbers.
 
 import type { GameInfo } from "./espn";
 
@@ -146,8 +145,7 @@ export class Store {
    * `daysWithUngraded` cannot serve this: a day drops out of it the moment its
    * last game grades. The recap flag is only set AFTER a successful post, so if
    * that post failed the day is already fully graded, never comes back round, and
-   * the recap is lost permanently. Found while porting this loop to the v2 engine;
-   * a sibling bot and a sibling bot had the identical bug.
+   * the recap is lost permanently.
    *
    * Bounded and newest-first: a day stays fully graded forever, and we only need
    * to catch a recap that has not managed to post yet.
@@ -233,6 +231,26 @@ export class Store {
         .prepare("INSERT INTO pick_events(game_id, user_id, user_name, side) VALUES(?,?,?,?)")
         .bind(gameId, userId, userName, side),
     ]);
+  }
+
+  /**
+   * Delete everything stored about one user: current picks, every tap in the
+   * audit log, and their DM cards. This is the ONE path that deletes from
+   * pick_events (the /forgetme command). Graded games and other players' rows
+   * are untouched; the standings simply stop counting this player. Returns how
+   * many current picks were removed.
+   */
+  async forgetUser(userId: string): Promise<number> {
+    const row = await this.db
+      .prepare("SELECT COUNT(*) AS n FROM picks WHERE user_id = ?")
+      .bind(userId)
+      .first<{ n: number }>();
+    await this.db.batch([
+      this.db.prepare("DELETE FROM picks WHERE user_id = ?").bind(userId),
+      this.db.prepare("DELETE FROM pick_events WHERE user_id = ?").bind(userId),
+      this.db.prepare("DELETE FROM dm_cards WHERE user_id = ?").bind(userId),
+    ]);
+    return row?.n ?? 0;
   }
 
   // Full tap history for a game, oldest first — the audit trail for disputes.

@@ -2,7 +2,7 @@
 //
 // No gateway, no process: Discord delivers slash commands and button taps as
 // signed HTTP POSTs to /interactions, and a cron trigger drives the daily
-// slate + grading (see tick.ts). Port of the original bot's picks cog.
+// slate + grading (see tick.ts).
 
 import {
   displayName,
@@ -179,13 +179,59 @@ async function handleMypicks(store: Store, interaction: any): Promise<Response> 
   return replyEmbed(dayCardEmbed(rows, day, "🎟️ Your picks"), true); // only you see your card
 }
 
+// ---------- /forgetme ----------
+// Deletes everything the bot stores about the requesting user: their picks,
+// every tap in the audit log and their DM cards. Two steps so a mis-tap cannot
+// wipe a season: the command shows a confirm button, the button does the work.
+
+function handleForgetme(): Response {
+  return json({
+    type: ResponseType.CHANNEL_MESSAGE,
+    data: {
+      content:
+        "This deletes **every pick you have ever made here**, your tap history and your " +
+        "pick cards, and drops you from the standings. It cannot be undone.",
+      flags: EPHEMERAL,
+      components: [
+        {
+          type: 1, // action row
+          components: [{ type: 2, style: 4, label: "Delete everything about me", custom_id: "forget:confirm" }],
+        },
+      ],
+    },
+  });
+}
+
+async function handleForgetConfirm(
+  env: Env,
+  store: Store,
+  interaction: any,
+  ctx: ExecutionContext
+): Promise<Response> {
+  const uid = userId(interaction);
+  const removed = await store.forgetUser(uid);
+  // The pinned standings still show them until the next refresh; do it now.
+  const channelId = await store.getSetting("channel_id");
+  if (channelId) {
+    ctx.waitUntil(
+      updateLeaderboard(env, store, channelId).catch((err) => console.error("leaderboard refresh after forget:", err))
+    );
+  }
+  return json({
+    type: ResponseType.UPDATE_MESSAGE,
+    data: {
+      content: `🗑️ Done. ${removed} pick(s) and your whole tap history are gone.`,
+      components: [],
+    },
+  });
+}
+
 // ---------- worker entry points ----------
 
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
-    // the scheduler drives the tick — the account is at the Workers Free plan's
-    // 5-cron-per-account cap, so one hub cron fans out to every picks bot.
+    // Optional external scheduler (inert until TICK_KEY is set, see tickroute.ts).
     // Must come BEFORE the catch-all below, which answers 200 to everything.
     const tick = handleTickRoute(request, url, env.TICK_KEY, () => runTick(env), ctx);
     if (tick) return tick;
@@ -205,7 +251,7 @@ export default {
     if (interaction.type === InteractionType.PING) {
       return json({ type: ResponseType.PONG });
     }
-    // Single-server by design, like the original bot: ignore anything from elsewhere.
+    // Single-server by design: ignore anything from elsewhere.
     if (env.GUILD_ID && interaction.guild_id !== env.GUILD_ID) {
       return reply("This bot only serves its home server.");
     }
@@ -213,8 +259,12 @@ export default {
     const store = new Store(env.DB);
     try {
       if (interaction.type === InteractionType.MESSAGE_COMPONENT) {
-        if (String(interaction.data?.custom_id ?? "").startsWith("pick:")) {
+        const customId = String(interaction.data?.custom_id ?? "");
+        if (customId.startsWith("pick:")) {
           return await handlePick(env, store, interaction, ctx);
+        }
+        if (customId === "forget:confirm") {
+          return await handleForgetConfirm(env, store, interaction, ctx);
         }
         return reply("I don't know that button 🤔");
       }
@@ -228,6 +278,8 @@ export default {
             return await handleLeaderboard(env, store, interaction, ctx);
           case "mypicks":
             return await handleMypicks(store, interaction);
+          case "forgetme":
+            return handleForgetme();
         }
       }
       return reply("Unknown interaction 🤔");

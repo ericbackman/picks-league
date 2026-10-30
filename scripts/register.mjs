@@ -46,7 +46,7 @@ const commands = [
       {
         type: 3, // STRING
         name: "leagues",
-        description: "e.g. nba nhl wc mlb:TOR — leagues, or league:TEAM to filter (default: nba nhl wc mlb:TOR)",
+        description: "e.g. nba nhl mlb:TOR — leagues, or league:TEAM to filter (default: nba nhl mlb nfl)",
         required: false,
       },
     ],
@@ -54,6 +54,7 @@ const commands = [
   { name: "slate", description: "Post today's games now" },
   { name: "leaderboard", description: "Season standings" },
   { name: "mypicks", description: "Your picks for today (only you see this)" },
+  { name: "forgetme", description: "Delete everything this bot stores about you (asks you to confirm)" },
 ];
 
 const resp = await fetch(

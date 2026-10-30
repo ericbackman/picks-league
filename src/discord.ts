@@ -1,12 +1,8 @@
-// brick: CANONICAL HOME — fixes land here first, then sweep the consumers listed
-// in the sibling bots.
-//
 // Discord plumbing: request signature verification (Ed25519 via WebCrypto) and the
 // few REST calls the bot makes. No SDK — the surface is tiny.
 //
-// Deliberately carries NO per-bot branding. The embed colour lives in each bot's
-// `brand.ts`, which is what lets this file stay byte-identical across consumers —
-// it was the only real divergence between the three copies.
+// Deliberately carries NO branding: the embed colour lives in `brand.ts`, so this
+// file can be dropped into another bot unchanged.
 
 export interface Env {
   DB: D1Database;
@@ -14,10 +10,13 @@ export interface Env {
   DISCORD_APPLICATION_ID: string;
   DISCORD_PUBLIC_KEY: string;
   GUILD_ID: string;
-  // secret: shared with the scheduler, which POSTs /tick every 15 min. Optional in
-  // the type so the bot still typechecks before the secret is set, but the route
-  // fails CLOSED when it's missing (see tickroute.ts).
+  // Optional secret for an external scheduler that POSTs /tick instead of (or as
+  // well as) the cron trigger. Optional in the type so the bot typechecks before
+  // it is set, but the route fails CLOSED while it is missing (see tickroute.ts).
   TICK_KEY?: string;
+  // Optional var: "off" posts game cards without the ESPN team logos (README,
+  // "Team logos"). Anything else, or unset, shows them.
+  TEAM_LOGOS?: string;
 }
 
 export const InteractionType = {
@@ -30,6 +29,7 @@ export const ResponseType = {
   PONG: 1,
   CHANNEL_MESSAGE: 4,
   DEFERRED_CHANNEL_MESSAGE: 5,
+  UPDATE_MESSAGE: 7, // edit the message the button sits on
 } as const;
 
 export const ComponentType = {
@@ -81,10 +81,9 @@ const MAX_REST_ATTEMPTS = 4;
 
 export const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
 
-// One Discord REST call, resilient to transient failure (ported from a sibling bot,
-// which hit this first: Discord rate-limits per-channel, so posting a big slate in
-// a burst trips a 429 and — without this — the first one aborts the whole posting
-// loop mid-slate). On a 429 we wait exactly as long as Discord tells us
+// One Discord REST call, resilient to transient failure. Discord rate-limits
+// per channel, so posting a big slate in a burst trips a 429 and, without this,
+// the first one aborts the whole posting loop mid-slate. On a 429 we wait exactly as long as Discord tells us
 // (`retry_after`) and try again; 5xx get an exponential backoff.
 async function rest(
   env: Env,

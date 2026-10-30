@@ -1,4 +1,4 @@
-// v1 store queries against real SQLite with the real schema.sql applied.
+// Store queries against real SQLite with the real migration applied.
 //
 // Added for the recap-retry fix: `daysFullyGraded` is the query that makes a
 // missed recap recoverable at all, so it gets a test rather than a hope.
@@ -7,7 +7,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { asD1, FakeD1 } from "./helpers/fake-d1";
 import { Store } from "../src/store";
 
-const SCHEMA = readFileSync("schema.sql", "utf8");
+const SCHEMA = readFileSync("migrations/0001_init.sql", "utf8");
 
 let db: FakeD1;
 let store: Store;
@@ -66,5 +66,25 @@ describe("daysFullyGraded", () => {
 
   it("ignores a day with no games at all", async () => {
     expect(await store.daysFullyGraded()).toEqual([]);
+  });
+});
+
+describe("forgetUser", () => {
+  it("deletes the user's picks, tap history and DM cards, and nobody else's", async () => {
+    game("g1", "2026-06-13", 0);
+    await store.recordPick("g1", "u1", "Alice", "home");
+    await store.recordPick("g1", "u1", "Alice", "away"); // two taps in the log
+    await store.recordPick("g1", "u2", "Bob", "home");
+    db.query("INSERT INTO dm_cards(user_id, day, dm_channel_id, message_id) VALUES('u1','2026-06-13','c','m')");
+
+    expect(await store.forgetUser("u1")).toBe(1);
+
+    expect((await store.picksForGame("g1")).map((p) => p.user_id)).toEqual(["u2"]);
+    expect((await store.pickHistory("g1")).map((e) => e.user_id)).toEqual(["u2"]);
+    expect(await store.getDmCard("u1", "2026-06-13")).toBeNull();
+  });
+
+  it("returns 0 for a user it has never seen", async () => {
+    expect(await store.forgetUser("nobody")).toBe(0);
   });
 });
