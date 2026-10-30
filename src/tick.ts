@@ -602,7 +602,7 @@ export async function gradePending(env: Env, store: Store, channelId: string): P
   const visited = new Set<string>();
   for (const day of await store.daysWithUngraded()) {
     visited.add(day);
-    for (const league of await store.ungradedLeagues(day)) {
+    for (const league of await store.ungradedLeagues(day, new Date().toISOString())) {
       let infos: GameInfo[];
       try {
         infos = await source.results(league, day);

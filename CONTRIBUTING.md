@@ -20,7 +20,7 @@ Run `npm run check` and `npm test` before opening a pull request; CI runs the sa
 
 ## Adding a data source
 
-Implement `SportSource` in `src/sources/`, add it to `sourceFor`, and put its terms of use in the README's Known limits before its code. The one shipped source was chosen because its published terms allow storing the data and showing it in an app; a source whose terms bar automated access does not belong in this repo, whatever it offers.
+Implement `SportSource` in `src/sources/`, add it to `sourceFor`, and put its terms of use in the README's Known limits before its code. The one shipped source was chosen because its published terms allow storing the data and showing it in an app; a source whose terms bar automated access does not belong in this repo, whatever it offers. And never add a command, file export or endpoint that hands out the raw lines: The Odds API's terms allow displaying its data and values derived from it, not redistributing it as a data product.
 
 ## Reporting a security issue
 

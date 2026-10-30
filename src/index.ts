@@ -96,7 +96,7 @@ async function handlePicksetup(store: Store, interaction: any): Promise<Response
     if (unknown.length) {
       return reply(
         `Unknown league(s): ${unknown.join(", ")} — I know ${Object.keys(LEAGUES).join(", ")} ` +
-          "(filter a league to teams like `mlb:TOR`)."
+          "(filter a league to teams like `mlb:jays`)."
       );
     }
     await store.setSetting(

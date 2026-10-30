@@ -24,7 +24,7 @@ There is no gateway connection and nothing listening. Discord delivers slash com
 | Command | Who | What it does |
 |---|---|---|
 | `/picksetup #channel [leagues]` | Manage Server | Set the picks channel and which leagues post |
-| `/slate` | anyone | Post today's games now instead of waiting for the tick |
+| `/slate` | Manage Server | Post today's games now instead of waiting for the tick (it spends data credits) |
 | `/leaderboard` | anyone | Create or refresh the pinned standings |
 | `/mypicks` | anyone | Your picks today, visible only to you |
 | `/forgetme` | anyone | Delete everything the bot stores about you, after a confirm button |
@@ -49,7 +49,7 @@ You need a Discord application, a Cloudflare account and a key for The Odds API.
 
 ### 2. Get a key for The Odds API
 
-Sign up at [the-odds-api.com](https://the-odds-api.com). The free Starter plan gives 500 credits a month and emails you the key. The bot spends 1 credit per league per day for the slate and 2 per league per grading sweep, and a call that finds no games (a league out of season) costs nothing, so the default one sweep a day with all four leagues in season is at most 12 credits a day, about 360 a month. The bot logs how many credits are left after every call.
+Sign up at [the-odds-api.com](https://the-odds-api.com). The free Starter plan gives 500 credits a month and emails you the key. The bot spends 1 credit per league per day for the slate and 2 per league per grading sweep, only for leagues with a started, ungraded game; a slate call that finds no games (a league out of season) costs nothing. So the default one sweep a day with all four leagues in season is at most 12 credits a day, about 360 a month. The bot logs how many credits are left after every call.
 
 ### 3. Deploy the Worker
 

@@ -159,10 +159,16 @@ export class Store {
     return results.map((r) => r.day);
   }
 
-  async ungradedLeagues(day: string): Promise<string[]> {
+  /**
+   * Leagues on a day with an ungraded game that has already started by `nowIso`.
+   * A league whose games are all still ahead has nothing to grade, and asking the
+   * source anyway spends credits for nothing (the morning tick posts the slate
+   * and then grades in the same run).
+   */
+  async ungradedLeagues(day: string, nowIso: string): Promise<string[]> {
     const { results } = await this.db
-      .prepare("SELECT DISTINCT league FROM games WHERE day = ? AND graded = 0")
-      .bind(day)
+      .prepare("SELECT DISTINCT league FROM games WHERE day = ? AND graded = 0 AND start_utc <= ?")
+      .bind(day, nowIso)
       .all<{ league: string }>();
     return results.map((r) => r.league);
   }

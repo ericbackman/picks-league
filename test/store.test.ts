@@ -102,3 +102,20 @@ describe("voidStale", () => {
     expect(await store.voidStale("2026-06-13", "2026-06-13T00:00:00Z")).toBe(0);
   });
 });
+
+describe("ungradedLeagues", () => {
+  it("names only leagues with an ungraded game that has started", async () => {
+    game("g1", "2026-06-13", 0); // starts 2026-06-13T23:00Z
+    game("g2", "2026-06-13", 1, "nhl"); // graded already
+    db.query(
+      "INSERT INTO games(game_id, league, day, away, home, away_name, home_name, start_utc, graded) " +
+        "VALUES('g3','mlb','2026-06-13','SEA','TOR','Mariners','Blue Jays','2026-06-14T01:00:00Z',0)"
+    );
+    // Morning of the 13th: nothing has started, so nothing to ask the source about.
+    expect(await store.ungradedLeagues("2026-06-13", "2026-06-13T10:00:00Z")).toEqual([]);
+    // Evening: the NBA game is under way, the MLB game is not yet.
+    expect(await store.ungradedLeagues("2026-06-13", "2026-06-13T23:30:00Z")).toEqual(["nba"]);
+    // Next morning: both.
+    expect((await store.ungradedLeagues("2026-06-13", "2026-06-14T10:00:00Z")).sort()).toEqual(["mlb", "nba"]);
+  });
+});

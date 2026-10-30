@@ -32,7 +32,7 @@ Until you delete it or the operator deletes the database. There is no automatic 
 
 Run `/forgetme` in the server and confirm. It deletes your picks, your audit-log rows and your DM pick cards, and refreshes the standings. Your name stays on finished game cards and past recaps already posted in the channel, like any other message history.
 
-If you have left the server, contact the operator above; they can run the same deletion by hand.
+If you have left the server, contact the operator above; they can delete your stored data by hand. The daily cards already in your DMs stay there.
 
 ## Age
 
