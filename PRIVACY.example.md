@@ -20,7 +20,7 @@ It reads nothing else from Discord: no roles, avatar, messages or join date.
 - **This Discord server:** the standings board, daily recaps and finished game cards show display names and results. They are ordinary channel messages.
 - **Your DMs:** your daily pick card.
 - **Cloudflare Workers logs:** the operator's logs keep error lines for a few days (3 on the free plan, 7 on paid). They contain no names or ids by design, except what Discord's own error replies carry.
-- **ESPN:** the bot asks ESPN's public scoreboard for each day's games and lines. It sends only the date and league, never anything about you. If the operator turns team logos on, Discord's image proxy fetches them from ESPN's servers; your device does not contact ESPN.
+- **The Odds API** (the-odds-api.com, operated in Australia): the bot asks it for each day's games, lines and scores. It sends only the sport and a date range, never anything about you. An operator who switched to the ESPN option instead sends the same to ESPN, and if they turned team logos on, Discord's image proxy fetches those from ESPN's servers; your device contacts neither.
 
 No analytics, no advertising, no other service.
 

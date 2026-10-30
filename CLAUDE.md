@@ -2,8 +2,8 @@
 
 A serverless Discord picks league: Cloudflare Worker + D1, TypeScript, no runtime
 dependencies. Discord delivers interactions as signed HTTP POSTs; a cron trigger
-runs an idempotent tick that posts the day's slate and grades finals off ESPN's
-public scoreboard. README.md is the user-facing document; docs/OPERATIONS.md is
+runs an idempotent tick that posts the day's slate and grades finals, with games,
+lines and results from The Odds API by default (ESPN's scoreboard is opt-in). README.md is the user-facing document; docs/OPERATIONS.md is
 the runbook for a live deployment.
 
 ## Structure
@@ -13,7 +13,8 @@ src/
   index.ts      # fetch (POST /interactions: PING, commands, buttons; optional POST /tick) + scheduled (cron)
   tick.ts       # idempotent tick: slate after SLATE_HOUR ET, grading sweep, recap, pinned board
   time.ts       # ET day helpers, pure
-  espn.ts       # ESPN public scoreboard fetch + pure parsing
+  sources/      # the data-source seam: index.ts (SportSource, sourceFor), odds-api.ts (default, metered)
+  espn.ts       # ESPN public scoreboard fetch + pure parsing; the opt-in source, and the LEAGUES table
   odds.ts       # moneyline -> fair probability -> payout, pure
   scoring.ts    # pointsFor (the tuning seam) + standings, pure
   store.ts      # every D1 query; the only module that knows the schema
@@ -36,6 +37,10 @@ test/                  # vitest; store tests run the real migration on real SQLi
 - Discord snowflakes are TEXT end to end.
 - The tick decides in Eastern Time from D1 state; the cron expression is UTC and
   never encodes a local hour.
+- A metered source grades on GRADE_HOURS, recorded in `last_grade_slot` only after
+  a sweep finishes; a source never logs its URL (the key is in the query string).
+- A game with no result after VOID_AFTER_HOURS is voided, so one lost game cannot
+  hold a day's recap open forever.
 - `pick_events` is never UPDATEd; the only DELETE is `Store.forgetUser`.
 - All Discord REST calls go through `rest()`, which honours `Retry-After` on a
   429 and backs off on 5xx. Slate posting is paced and per-game isolated.

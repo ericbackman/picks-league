@@ -88,3 +88,17 @@ describe("forgetUser", () => {
     expect(await store.forgetUser("nobody")).toBe(0);
   });
 });
+
+describe("voidStale", () => {
+  it("voids only old games with no result", async () => {
+    game("old", "2026-06-13", 0); // start 2026-06-13T23:00Z
+    game("done", "2026-06-13", 0);
+    db.query("UPDATE games SET winner = 'home' WHERE game_id = 'done'");
+    expect(await store.voidStale("2026-06-13", "2026-06-16T23:00:00Z")).toBe(1);
+    expect((await store.game("old"))?.winner).toBe("void");
+    expect((await store.game("done"))?.winner).toBe("home");
+    // A cutoff before the start leaves it alone.
+    game("fresh", "2026-06-13", 0);
+    expect(await store.voidStale("2026-06-13", "2026-06-13T00:00:00Z")).toBe(0);
+  });
+});

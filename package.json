@@ -17,7 +17,8 @@
       "DISCORD_TOKEN": { "description": "Bot token from the Discord Developer Portal (Bot tab, Reset Token)." },
       "DISCORD_APPLICATION_ID": { "description": "Application ID from the Developer Portal's General Information page." },
       "DISCORD_PUBLIC_KEY": { "description": "Public Key from the same page; used to verify every request from Discord." },
-      "GUILD_ID": { "description": "The id of the one Discord server this bot serves." }
+      "GUILD_ID": { "description": "The id of the one Discord server this bot serves." },
+      "ODDS_API_KEY": { "description": "Your key from https://the-odds-api.com (the free Starter plan is enough). Games, lines and results come from it." }
     }
   },
   "devDependencies": {

@@ -60,3 +60,23 @@ export function shiftDay(day: string, offset: number): string {
   dt.setUTCDate(dt.getUTCDate() + offset);
   return dt.toISOString().slice(0, 10);
 }
+
+/**
+ * The UTC instants where an ET calendar day starts and ends, as ISO strings
+ * without milliseconds (the form The Odds API accepts). ET midnight is 04:00Z
+ * in summer and 05:00Z in winter; etParts decides which, so DST never leaks in.
+ */
+export function etDayBoundsUtc(day: string): { startUtc: string; endUtc: string } {
+  const midnight = (d: string): Date => {
+    for (const utcHour of ["04", "05"]) {
+      const candidate = new Date(`${d}T${utcHour}:00:00Z`);
+      const parts = etParts(candidate);
+      if (parts.day === d && parts.hour === 0) return candidate;
+    }
+    throw new Error(`no ET midnight found for ${d}`); // a day that is not a day
+  };
+  const start = midnight(day);
+  const end = new Date(midnight(shiftDay(day, 1)).getTime() - 1000);
+  const iso = (dt: Date) => dt.toISOString().replace(/\.\d{3}Z$/, "Z");
+  return { startUtc: iso(start), endUtc: iso(end) };
+}

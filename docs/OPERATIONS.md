@@ -14,7 +14,9 @@ Within one 15-minute window you should see either `no games on <day>` (an empty 
 npx wrangler d1 execute DB --remote --command "SELECT key, value FROM settings"
 ```
 
-Expected rows: `channel_id` (set by `/picksetup`), `last_slate_day` (today's ET date once the slate has posted), `leaderboard_message_id` (once `/leaderboard` has run or the first day graded). No `channel_id` means `/picksetup` has never run on this database.
+Expected rows: `channel_id` (set by `/picksetup`), `last_slate_day` (today's ET date once the slate has posted), `last_grade_slot` (the last scheduled sweep that completed, like `2026-10-30T06`; absent with `GRADE_HOURS=*`), `leaderboard_message_id` (once `/leaderboard` has run or the first day graded). No `channel_id` means `/picksetup` has never run on this database.
+
+Every call to The Odds API logs a line like `odds-api /sports/basketball_nba/scores: 2 credit(s), 331 left this month`. Under 50 left, it warns.
 
 In Discord: the picks channel shows today's cards (buttons on games that have not started, `Final:` text on graded ones) and the pinned message at the top is the standings.
 
@@ -22,19 +24,24 @@ In Discord: the picks channel shows today's cards (buttons on games that have no
 
 Every 15 minutes `runTick()` in `src/tick.ts`:
 
-1. If `last_slate_day` is not today (ET) and the ET hour is at or past `SLATE_HOUR`, fetches the scoreboard for each configured league and posts a card per game, pacing the posts. `last_slate_day` is only written once every game has a card, so a partial post tops itself up on the next tick.
-2. For every day that still has an ungraded game, fetches that day's scoreboards, records finals, grades picks, edits each finished game's card to a compact result, and posts a recap once the whole day is graded.
+1. If `last_slate_day` is not today (ET) and the ET hour is at or past `SLATE_HOUR`, asks the data source for each configured league's games and posts a card per game, pacing the posts. `last_slate_day` is only written once every game has a card, so a partial post tops itself up on the next tick.
+2. If a grading sweep is due (`GRADE_HOURS`: every tick with `*`, else once per listed ET hour, recorded in `last_grade_slot` only after the sweep finishes), then for every day that still has an ungraded game: fetches that day's results, records finals, grades picks, edits each finished game's card to a compact result, and posts a recap once the whole day is graded.
 3. Refreshes the pinned standings when anything graded.
 
-A game ESPN marks as cancelled or postponed grades as `void`: nobody scores, the card says so.
+A game with no result 72 hours after its start (postponed, cancelled, or dropped by the source) grades as `void`: nobody scores, the card says so. With the ESPN source a cancelled game is voided as soon as ESPN says so.
 
 ## 3. Failure modes
 
 | Symptom | Cause | Fix | Verified by |
 |---|---|---|---|
 | No slate posted for the day | `channel_id` missing, or `last_slate_day` is already today (the slate posted and was deleted by hand) | `/picksetup`; or delete the `last_slate_day` row and the next tick re-posts whatever has no card | A slate within one tick |
-| `fetching <league> scoreboard` errors in the tail | ESPN unreachable or slow | None: the next tick retries. Persisting for hours means ESPN changed something, see the next row | That league completing normally |
-| Grading stuck for one league across many ticks, no error | ESPN reshaped the scoreboard payload; the parser skips what it cannot read rather than guess | Compare a live response for that league with the fixture in `test/espn.test.ts`, update `parseScoreboard`, add the new fixture, deploy | The league grades on the next tick |
+| `odds-api ... HTTP 401 ... OUT_OF_USAGE_CREDITS` | The month's credits are spent | Wait for the reset (the 1st), lower `GRADE_HOURS` to one sweep, drop a league, or move to a paid plan. Nothing is lost: the next sweep grades what it can still see (three days back) | The next call logs credits left |
+| `odds-api ... HTTP 401 ... INVALID_KEY` or `MISSING_KEY` | The secret is wrong or unset | `npx wrangler secret put ODDS_API_KEY` | The next tick's log line |
+| `ODDS_API_KEY is not set` thrown on every tick | The default source has no key and `DATA_SOURCE` is not `espn` | Set the key, or `DATA_SOURCE=espn` after reading the README's warning | Ticks run clean |
+| Games graded only the next morning | That is the default: `GRADE_HOURS=6` | `GRADE_HOURS="6 23"` or `*` if your quota allows (README, Grading schedule) | Finals edit at the new hours |
+| A game voided that was actually played | It had no result for 72 hours: the source never reported it, or the sweep that would have was skipped (credits out, key invalid) | Regrade it by hand (section 5) once you know the score | The card shows the final |
+| `fetching <league> slate` or `grading fetch` errors in the tail | The source unreachable or slow | None: the next sweep retries. Persisting for hours means the source changed something, see the next row | That league completing normally |
+| Grading stuck for one league across many sweeps, no error | The source reshaped its payload; both parsers skip what they cannot read rather than guess | Compare a live response with the fixtures in `test/sources.test.ts` (The Odds API) or `test/espn.test.ts`, update the parser, add the new fixture, deploy | The league grades on the next sweep |
 | A day graded but no recap posted | The recap post failed (Discord outage, permissions). The flag `recap_<day>` is only set after a successful post, and fully graded recent days are re-swept, so it retries every tick | If it keeps failing, `tail` shows `recap <day> failed` with Discord's reply; fix the permission. To force one by hand: delete the `recap_<day>` row | The recap appears, the row reads `1` |
 | A card never changed to `Final:` | The message edit failed but grading committed | Cosmetic. Points are correct in D1 and on the board | `SELECT * FROM games WHERE game_id = ...` shows `graded = 1` |
 | Cards without team logos when `TEAM_LOGOS=on` | ESPN dropped `team.logo` from the payload, or its CDN started refusing Discord's image proxy | Cosmetic; picks and scoring are unaffected. Logos are off unless you turned them on | Next slate |
@@ -81,7 +88,10 @@ npx wrangler d1 execute DB --remote --command "PRAGMA table_info(games)"
 | Standings sections | `SPORT_BOARDS` in `src/tick.ts` | all four leagues plus World Cup | Empty leagues are omitted |
 | Default leagues for a fresh `/picksetup` | `DEFAULT_LEAGUES` in `src/tick.ts` | `nba nhl mlb nfl` | The live value is the `leagues` setting |
 | Slate hour (ET) | `SLATE_HOUR` in `src/tick.ts` | 6 | 0 to 23 |
-| Tick cadence | `triggers.crons` in `wrangler.jsonc` | every 15 minutes | Keep it 15 minutes or faster for timely grading; never encode an ET hour in the cron, DST is handled inside the tick |
+| Tick cadence | `triggers.crons` in `wrangler.jsonc` | every 15 minutes | The slate and lock times depend on it; never encode an ET hour in the cron, DST is handled inside the tick |
+| Grading sweeps | `GRADE_HOURS` var | `6` (The Odds API), `*` (ESPN) | ET hours, or `*` for every tick; each sweep costs 2 credits per league with games pending |
+| Data source | `DATA_SOURCE` var | `odds-api` | `espn` is opt-in; see the README's warning |
+| Bookmaker preference | `ODDS_API_BOOKMAKERS` var | first in the response | Comma-separated keys from The Odds API's list |
 | Team logos | `TEAM_LOGOS` var | off | `on` shows the teams' logos from ESPN's CDN; they are the leagues' marks, your call |
 
 ## 8. Erasure on request

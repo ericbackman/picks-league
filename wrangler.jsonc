@@ -15,8 +15,10 @@
   // of the template; a fork may commit it.
   "d1_databases": [{ "binding": "DB", "database_name": "picks-league" }],
 
-  // Everything the Worker needs from Discord is a secret (see .dev.vars.example),
-  // so one config file serves every deployment. Optional: TICK_KEY, which turns
-  // on the authenticated POST /tick route for an external scheduler (README).
+  // Everything the Worker needs from Discord, and The Odds API key, are secrets
+  // (see .dev.vars.example), so one config file serves every deployment.
+  // Optional vars, each explained in the README's Configuration section:
+  //   "vars": { "GRADE_HOURS": "6 23", "ODDS_API_BOOKMAKERS": "fanduel", "DATA_SOURCE": "espn", "TEAM_LOGOS": "on" }
+  // Optional secret: TICK_KEY, the authenticated POST /tick route for an external scheduler.
   "observability": { "enabled": true }
 }

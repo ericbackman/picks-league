@@ -1,7 +1,8 @@
 # Copy to .dev.vars for local work (gitignored). The "Deploy to Cloudflare" button
 # asks for each of these at deploy time; by hand, set them with
 #   npx wrangler secret put <NAME>
-# All four come from https://discord.com/developers/applications.
+# The first four come from https://discord.com/developers/applications; the
+# last from https://the-odds-api.com.
 
 # Bot tab -> Reset Token. The one real secret: never commit it, never paste it in chat.
 DISCORD_TOKEN=
@@ -16,3 +17,7 @@ DISCORD_PUBLIC_KEY=
 # with Developer Mode on). The bot answers only this server; slash commands are
 # registered to it.
 GUILD_ID=
+
+# The Odds API key (free Starter plan, 500 credits a month, sent by email on
+# sign-up). Games, lines and results come from it unless DATA_SOURCE=espn.
+ODDS_API_KEY=

@@ -188,6 +188,19 @@ export class Store {
       .run();
   }
 
+  /**
+   * Void every game on a day that started before `cutoffIso` and still has no
+   * result. Returns how many. The next ungradedFinals() pass grades them for
+   * nobody and edits their cards to "no contest".
+   */
+  async voidStale(day: string, cutoffIso: string): Promise<number> {
+    const result = await this.db
+      .prepare("UPDATE games SET winner = 'void' WHERE day = ? AND graded = 0 AND winner IS NULL AND start_utc < ?")
+      .bind(day, cutoffIso)
+      .run();
+    return result.meta.changes;
+  }
+
   async ungradedFinals(day: string): Promise<GameRow[]> {
     const { results } = await this.db
       .prepare("SELECT * FROM games WHERE day = ? AND graded = 0 AND winner IS NOT NULL")

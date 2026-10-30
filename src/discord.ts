@@ -16,7 +16,19 @@ export interface Env {
   TICK_KEY?: string;
   // Optional var: "on" adds the teams' logos (ESPN-hosted, the leagues' marks)
   // to game cards. Unset or anything else = text-only cards (README, "Team logos").
+  // Only the ESPN source carries logos.
   TEAM_LOGOS?: string;
+  // Where games, lines and results come from: "odds-api" (default, needs
+  // ODDS_API_KEY) or "espn" (opt-in; see the README on ESPN's terms). sources/index.ts.
+  DATA_SOURCE?: string;
+  ODDS_API_KEY?: string; // secret: npx wrangler secret put ODDS_API_KEY
+  // Optional: comma-separated bookmaker keys to take lines from, in order of
+  // preference (The Odds API's keys, e.g. "fanduel,draftkings"). Unset = the
+  // first bookmaker in the response.
+  ODDS_API_BOOKMAKERS?: string;
+  // When to grade, as ET hours ("6" or "6 23"), or "*" for every tick. Unset =
+  // "*" for an unmetered source and GRADE_HOURS_DEFAULT (tick.ts) for a metered one.
+  GRADE_HOURS?: string;
 }
 
 export const InteractionType = {

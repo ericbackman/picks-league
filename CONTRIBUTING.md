@@ -14,8 +14,8 @@ Run `npm run check` and `npm test` before opening a pull request; CI runs the sa
 
 ## Adding a sport
 
-1. Add the league to `LEAGUES` and `LEAGUE_ICONS` in `src/espn.ts`, and to `DRAW_LEAGUES` if a tie is a result. The key is the pair ESPN uses in its scoreboard URL (`sports/<sport>/<league>`).
-2. Add a fixture test in `test/espn.test.ts` from a real scoreboard response.
+1. Add the league to `LEAGUES` and `LEAGUE_ICONS` in `src/espn.ts` (the key is the pair ESPN uses in its scoreboard URL) and to `ODDS_API_SPORTS` in `src/sources/odds-api.ts` (The Odds API's sport key), and to `DRAW_LEAGUES` if a tie is a result.
+2. Add a fixture test in `test/sources.test.ts` and `test/espn.test.ts` from real responses.
 3. Add it to `SPORT_BOARDS` in `src/tick.ts` if it deserves its own standings section.
 
 ## Reporting a security issue

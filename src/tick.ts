@@ -13,7 +13,8 @@ import {
   type Env,
 } from "./discord";
 import { EMBED_COLOR } from "./brand";
-import { DRAW_LEAGUES, fetchScoreboard, LEAGUE_ICONS, LEAGUES, type GameInfo } from "./espn";
+import { DRAW_LEAGUES, LEAGUE_ICONS, LEAGUES, type GameInfo } from "./espn";
+import { sourceFor } from "./sources";
 import { fairProbs, favoriteSide, fmtMl, fmtPct, payoutFor, type MlGame } from "./odds";
 import {
   currentStreaks,
@@ -30,6 +31,16 @@ export const BOOKIE_ID = "bookie"; // synthetic leaderboard player; real user id
 export const BOOKIE_NAME = "The Bookie 🤖";
 
 export const SLATE_HOUR = 6; // post the day's slate at/after 6:00 ET
+
+// A metered source (The Odds API's free tier is a few hundred calls a month)
+// grades on a schedule instead of every tick. 6 ET catches every game of the
+// night before; add "23" for a same-evening sweep if your quota allows.
+export const GRADE_HOURS_DEFAULT = "6";
+
+// A game with no result this long after its start is voided: postponed,
+// cancelled, or dropped by the source. Without this one lost game would hold a
+// day open forever, and with it no recap ever posts.
+export const VOID_AFTER_HOURS = 72;
 
 // Gentle spacing between bulk game posts so a big slate stays under Discord's
 // per-channel message rate limit (rest() still retries a 429 beneath us).
@@ -120,9 +131,37 @@ export function unknownLeagues(specs: LeagueSpec[]): string[] {
   return specs.map((s) => s.key).filter((key) => !Object.hasOwn(LEAGUES, key));
 }
 
+// A team token matches an abbreviation exactly ("TOR") or any team whose name
+// contains it ("JAYS", "BLUE JAYS"): sources differ in whether they have
+// abbreviations at all.
 export function filterGames(games: GameInfo[], spec: LeagueSpec): GameInfo[] {
   if (!spec.teams) return games;
-  return games.filter((g) => spec.teams!.has(g.away) || spec.teams!.has(g.home));
+  const matches = (abbr: string, name: string | undefined) =>
+    [...spec.teams!].some((t) => abbr.toUpperCase() === t || (name ?? "").toUpperCase().includes(t));
+  return games.filter((g) => matches(g.away, g.awayName) || matches(g.home, g.homeName));
+}
+
+/**
+ * Whether this tick should grade, and the slot to record once it has. "*" grades
+ * every tick and records nothing. A list of ET hours grades once per listed hour:
+ * the slot `<day>T<hour>` is written after a successful sweep, so a sweep that
+ * throws is retried on the next tick in the same hour and never silently skipped.
+ */
+export function gradeDue(
+  gradeHours: string,
+  day: string,
+  hour: number,
+  lastSlot: string | null
+): { due: boolean; slot: string | null } {
+  const spec = gradeHours.trim();
+  if (spec === "*" || spec === "") return { due: true, slot: null };
+  const hours = spec.split(/[\s,]+/).filter(Boolean).map(Number);
+  if (hours.some((h) => !Number.isInteger(h) || h < 0 || h > 23)) {
+    throw new Error(`GRADE_HOURS must be "*" or ET hours 0-23 like "6 23", not ${JSON.stringify(gradeHours)}`);
+  }
+  if (!hours.includes(hour)) return { due: false, slot: null };
+  const slot = `${day}T${String(hour).padStart(2, "0")}`;
+  return slot === lastSlot ? { due: false, slot: null } : { due: true, slot };
 }
 
 // ---------- time helpers ----------
@@ -489,15 +528,18 @@ export function teamLogosEnabled(env: Pick<Env, "TEAM_LOGOS">): boolean {
  * posts only what's new. Returns how many game messages were posted.
  */
 export async function postSlate(env: Env, store: Store, channelId: string, day: string): Promise<number> {
+  const source = sourceFor(env);
   const specs = parseLeagueSpecs((await store.getSetting("leagues")) ?? DEFAULT_LEAGUES);
   const byId = new Map<string, GameInfo>(); // dedupe: "mlb:TOR mlb:STL" fetches mlb twice
+  const fetched = new Map<string, GameInfo[]>(); // one call per league, even with several specs
   for (const spec of specs) {
     try {
-      for (const game of filterGames(await fetchScoreboard(spec.key, yyyymmdd(day)), spec)) {
+      if (!fetched.has(spec.key)) fetched.set(spec.key, await source.slate(spec.key, day));
+      for (const game of filterGames(fetched.get(spec.key)!, spec)) {
         byId.set(game.gameId, game);
       }
     } catch (err) {
-      console.error(`fetching ${spec.key} scoreboard for ${day}:`, err);
+      console.error(`fetching ${spec.key} slate for ${day} from ${source.name}:`, err);
     }
   }
   const games = [...byId.values()];
@@ -595,6 +637,7 @@ export async function postSlate(env: Env, store: Store, channelId: string, day: 
 // ---------- grading ----------
 
 export async function gradePending(env: Env, store: Store, channelId: string): Promise<void> {
+  const source = sourceFor(env);
   let gradedAny = false;
   const visited = new Set<string>();
   for (const day of await store.daysWithUngraded()) {
@@ -602,15 +645,17 @@ export async function gradePending(env: Env, store: Store, channelId: string): P
     for (const league of await store.ungradedLeagues(day)) {
       let infos: GameInfo[];
       try {
-        infos = await fetchScoreboard(league, yyyymmdd(day));
+        infos = await source.results(league, day);
       } catch (err) {
-        console.error(`grading fetch ${league} ${day}:`, err);
+        console.error(`grading fetch ${league} ${day} from ${source.name}:`, err);
         continue;
       }
       for (const info of infos) {
         if (info.completed) await store.applyResult(info);
       }
     }
+    const voided = await store.voidStale(day, new Date(Date.now() - VOID_AFTER_HOURS * 3_600_000).toISOString());
+    if (voided) console.warn(`${voided} game(s) on ${day} had no result after ${VOID_AFTER_HOURS}h: voided`);
     for (const game of await store.ungradedFinals(day)) {
       const picks = await store.picksForGame(game.game_id);
       const points = new Map<string, number>(
@@ -732,5 +777,10 @@ export async function runTick(env: Env): Promise<void> {
   if (last !== day && hour >= SLATE_HOUR) {
     await postSlate(env, store, channelId, day);
   }
+  const source = sourceFor(env);
+  const gradeHours = env.GRADE_HOURS ?? (source.quotaBound ? GRADE_HOURS_DEFAULT : "*");
+  const { due, slot } = gradeDue(gradeHours, day, hour, await store.getSetting("last_grade_slot"));
+  if (!due) return;
   await gradePending(env, store, channelId);
+  if (slot) await store.setSetting("last_grade_slot", slot);
 }

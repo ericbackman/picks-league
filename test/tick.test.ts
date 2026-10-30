@@ -6,6 +6,7 @@ import type { GameInfo } from "../src/espn";
 import {
   BOOKIE_ID,
   buildSportBoards,
+  gradeDue,
   teamLogosEnabled,
   etParts,
   filterGames,
@@ -96,6 +97,15 @@ describe("league specs", () => {
     ]);
     expect(filterGames(games, parseLeagueSpecs("mlb")[0])).toHaveLength(3);
   });
+
+  it("matches a team token against the full name too, for sources without abbreviations", () => {
+    const named = (away: string, home: string) =>
+      ({ away, home, awayName: away, homeName: home }) as GameInfo;
+    const games = [named("Toronto Blue Jays", "Baltimore Orioles"), named("Seattle Mariners", "Houston Astros")];
+    expect(filterGames(games, parseLeagueSpecs("mlb:jays")[0]).map((g) => g.away)).toEqual(["Toronto Blue Jays"]);
+    expect(filterGames(games, parseLeagueSpecs("mlb:TOR+astros")[0])).toHaveLength(2);
+    expect(filterGames(games, parseLeagueSpecs("mlb:XYZ")[0])).toHaveLength(0);
+  });
 });
 
 describe("sport boards (the pinned board + daily recap split)", () => {
@@ -160,5 +170,27 @@ describe("teamLogosEnabled", () => {
     expect(teamLogosEnabled({ TEAM_LOGOS: "yes" })).toBe(false);
     expect(teamLogosEnabled({ TEAM_LOGOS: "on" })).toBe(true);
     expect(teamLogosEnabled({ TEAM_LOGOS: " ON " })).toBe(true);
+  });
+});
+
+describe("gradeDue", () => {
+  it("grades every tick on * and records no slot", () => {
+    expect(gradeDue("*", "2026-10-30", 14, "2026-10-30T14")).toEqual({ due: true, slot: null });
+    expect(gradeDue("", "2026-10-30", 14, null)).toEqual({ due: true, slot: null });
+  });
+
+  it("grades once per listed ET hour", () => {
+    expect(gradeDue("6 23", "2026-10-30", 5, null)).toEqual({ due: false, slot: null });
+    expect(gradeDue("6 23", "2026-10-30", 6, null)).toEqual({ due: true, slot: "2026-10-30T06" });
+    // Same hour, already swept: the three later ticks in that hour do nothing.
+    expect(gradeDue("6 23", "2026-10-30", 6, "2026-10-30T06")).toEqual({ due: false, slot: null });
+    // Next day, same hour: due again.
+    expect(gradeDue("6 23", "2026-10-31", 6, "2026-10-30T06")).toEqual({ due: true, slot: "2026-10-31T06" });
+    expect(gradeDue("6,23", "2026-10-30", 23, null)).toEqual({ due: true, slot: "2026-10-30T23" });
+  });
+
+  it("rejects an hour that is not an hour", () => {
+    expect(() => gradeDue("6 25", "2026-10-30", 6, null)).toThrow(/GRADE_HOURS/);
+    expect(() => gradeDue("six", "2026-10-30", 6, null)).toThrow(/GRADE_HOURS/);
   });
 });
