@@ -1,14 +1,24 @@
 {
-  "name": "the private original",
+  "name": "picks-league",
   "private": true,
   "type": "module",
+  "license": "MIT",
+  "description": "A serverless Discord picks league: Cloudflare Workers + D1, no bot process",
   "scripts": {
     "dev": "wrangler dev",
-    "deploy": "wrangler deploy",
+    "deploy": "npm run db:migrate && wrangler deploy",
+    "db:migrate": "wrangler d1 migrations apply DB --remote",
     "test": "vitest run",
     "check": "tsc --noEmit",
-    "register": "node scripts/register.mjs",
-    "verify:migration": "vitest run --config vitest.verify.config.ts"
+    "register": "node scripts/register.mjs"
+  },
+  "cloudflare": {
+    "bindings": {
+      "DISCORD_TOKEN": { "description": "Bot token from the Discord Developer Portal (Bot tab, Reset Token)." },
+      "DISCORD_APPLICATION_ID": { "description": "Application ID from the Developer Portal's General Information page." },
+      "DISCORD_PUBLIC_KEY": { "description": "Public Key from the same page; used to verify every request from Discord." },
+      "GUILD_ID": { "description": "The id of the one Discord server this bot serves." }
+    }
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^5.20260714.1",

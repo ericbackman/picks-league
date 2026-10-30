@@ -1,5 +1,5 @@
-// The idempotent tick + slate/grading logic — port of the original bot's picks/cog.py
-// scheduling half. Runs from the cron trigger every 15 minutes: posts the
+// The idempotent tick + slate/grading logic. Runs from the cron trigger every
+// 15 minutes: posts the
 // day's slate after SLATE_HOUR ET (once), sweeps ungraded days for finals,
 // edits game messages with results, and posts a recap when a day completes.
 // All state lives in D1, so any single run can fail and the next catches up.
@@ -38,17 +38,20 @@ const POST_SPACING_MS = 300;
 // Shared `url` base for a game's embeds — Discord renders same-url embeds as ONE
 // embed with their images in a side-by-side grid, which is how a matchup card
 // shows both team logos. Never actually served as a page; per-game uniqueness is
-// all that matters.
-const GAME_URL_BASE = "https://picks.example.workers.dev/game";
+// all that matters, so the host is a reserved name that resolves to nothing.
+const GAME_URL_BASE = "https://example.com/picks-league/game";
 
 // Per-sport sections shown on BOTH the pinned standings board and the daily
 // recap, in display order.
-// ERIC'S SEAM: add a league here to give it its own board — the `league` must
-// be a key in espn.ts LEAGUES (so it has an icon and was actually picked on).
-// Today: World Cup + baseball, as requested.
+// THE SEAM: add a league here to give it its own board. The `league` must be a
+// key in espn.ts LEAGUES (so it has an icon). A league with no graded pick yet
+// is omitted from the board, so listing a sport out of season costs nothing.
 export const SPORT_BOARDS: { league: string; label: string }[] = [
-  { league: "wc", label: "World Cup" },
+  { league: "nba", label: "Basketball" },
+  { league: "nhl", label: "Hockey" },
   { league: "mlb", label: "Baseball" },
+  { league: "nfl", label: "Football" },
+  { league: "wc", label: "World Cup" },
 ];
 
 export interface SportBoard {
@@ -81,9 +84,9 @@ export function buildSportBoards(seasonRows: GradedRow[]): SportBoard[] {
     bookiePoints: standings(bookieRows.filter((r) => r.league === league))[0]?.points,
   }));
 }
-// Eric's v1 lineup: all NBA, all NHL, all World Cup, Blue Jays only —
-// a full MLB slate floods the channel with 15 games a day.
-export const DEFAULT_LEAGUES = "nba nhl wc mlb:TOR";
+// What a fresh /picksetup posts when no leagues are given. A full MLB slate is
+// 15 games a day; filter it to a team ("mlb:TOR") if that floods your channel.
+export const DEFAULT_LEAGUES = "nba nhl mlb nfl";
 
 // ---------- league specs ----------
 // A leagues setting is whitespace-separated entries: "nba" takes the whole
@@ -123,8 +126,7 @@ export function filterGames(games: GameInfo[], spec: LeagueSpec): GameInfo[] {
 }
 
 // ---------- time helpers ----------
-// Live in time.ts since 2026-10-21 so the second Worker can share them without
-// bundling the Discord code. Re-exported here because index.ts, the v2 plugin
+// Live in time.ts (pure, no Discord code). Re-exported here because index.ts
 // and the tests import them from this module.
 export { etParts, fmtEt, prettyDay, yyyymmdd } from "./time";
 import { etParts, fmtEt, prettyDay, yyyymmdd } from "./time";
@@ -189,7 +191,7 @@ export function gameButtons(game: GameInfo): object[] {
 
 // A game as a two-logo matchup card: one or two embeds sharing the same `url`,
 // which Discord renders as a SINGLE embed with the logos in a side-by-side grid
-// (same pattern as a sibling bot' portrait cards). Logo order matches the text and
+// with the buttons beneath. Logo order matches the text and
 // buttons: draw leagues read "Home vs Away" (home left), the NA sports
 // "Away @ Home" (away left). A side with no logo drops out of the grid; with
 // neither, the card is the text line alone. `extra` carries the crowd tally.
@@ -475,6 +477,11 @@ export async function updateLeaderboard(env: Env, store: Store, channelId: strin
 
 // ---------- slate posting ----------
 
+/** TEAM_LOGOS=off posts text-only cards; the logos are never stored either. */
+export function teamLogosEnabled(env: Pick<Env, "TEAM_LOGOS">): boolean {
+  return (env.TEAM_LOGOS ?? "on").trim().toLowerCase() !== "off";
+}
+
 /**
  * Post the day's games — idempotent top-up: games already posted (a stored
  * message_id) are skipped, so re-running after a mid-day /picksetup change
@@ -493,6 +500,12 @@ export async function postSlate(env: Env, store: Store, channelId: string, day: 
     }
   }
   const games = [...byId.values()];
+  if (!teamLogosEnabled(env)) {
+    for (const g of games) {
+      g.awayLogo = null;
+      g.homeLogo = null;
+    }
+  }
   if (!games.length) {
     // Mark empty days handled — don't re-ask ESPN all day.
     await store.setSetting("last_slate_day", day);

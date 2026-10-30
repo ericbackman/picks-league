@@ -1,11 +1,7 @@
 // Eastern Time helpers. A sports "day" is an ET calendar day no matter where the
-// Worker runs or who is looking, so every day boundary in both Workers (the
-// Discord bot and the second Worker) goes through here. Pure: fixed Dates in, strings
-// out, which is what makes the DST cases testable.
-//
-// Extracted from tick.ts on 2026-10-21 so the second Worker can share them without
-// bundling the Discord code; tick.ts re-exports them, so nothing that imported
-// from there had to move.
+// Worker runs or who is looking, so every day boundary goes through here. Pure:
+// fixed Dates in, strings out, which is what makes the DST cases testable.
+// tick.ts re-exports them.
 
 const ET = "America/New_York"; // sports schedule "days" are Eastern Time
 

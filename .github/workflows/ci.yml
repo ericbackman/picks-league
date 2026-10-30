@@ -1,14 +1,8 @@
 name: CI
 
-# Test gate for the picks Worker: type check + vitest on every push to main and
-# every pull request. It does NOT deploy. Deploys are by hand (PLAYBOOK OP-1),
-# the same as every other Worker in the estate.
-#
-# History: this file was deploy.yml (test -> migrate D1 -> deploy) from
-# 2026-07-31. It pinned Node 20, the tests use node:sqlite (Node 22+), and all
-# 10 runs to 2026-09-08 failed at the test step, so it never deployed anything.
-# On 2026-09-22 it became test-only on Node 24, and the Cloudflare token it
-# needed was removed from the repo's secrets.
+# Test gate: type check + vitest on every push to main and every pull request.
+# It does NOT deploy; `npm run deploy` is a decision a person makes. The tests
+# use node:sqlite, so Node 22 or newer is required.
 
 on:
   push:

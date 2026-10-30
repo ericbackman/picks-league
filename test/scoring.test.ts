@@ -1,6 +1,5 @@
-// Port of the original bot's scoring tests. pointsFor's contract is pinned here so
-// Eric's scoring rewrites can't break grading: pure, finite, >= 0,
-// deterministic.
+// pointsFor's contract is pinned here so a scoring rewrite can't break
+// grading: pure, finite, >= 0, deterministic.
 
 import { describe, expect, it } from "vitest";
 import {

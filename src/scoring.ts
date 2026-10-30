@@ -1,6 +1,6 @@
 // Scoring policy and standings math. Pure functions — no Discord, no D1.
-// Direct port of the original bot's picks/scoring.py; the contract is identical, so
-// tuning done here can be copied back to the Python version and vice versa.
+// `pointsFor` is the tuning seam: pure, deterministic, finite, >= 0, pinned by
+// tests, and only ever called for a correct pick.
 
 import { payoutFor, type MlGame } from "./odds";
 import type { GradedRow } from "./store";
@@ -18,7 +18,7 @@ export interface ScorableGame extends MlGame {
 /**
  * How many points a CORRECT pick of `side` earns for this game.
  *
- * ERIC'S TUNING SPOT. Contract, pinned by tests: pure, never throws,
+ * THE TUNING SPOT. Contract, pinned by tests: pure, never throws,
  * returns a finite number >= 0, deterministic. Wrong picks never reach
  * here — they always score 0.
  *

@@ -1,5 +1,6 @@
--- D1 schema — direct port of the original bot's picks/store.py (D1 is SQLite).
--- Apply with: npx wrangler d1 execute picks --file schema.sql --remote
+-- D1 schema (D1 is SQLite). Applied by `npm run db:migrate`, which `npm run deploy`
+-- runs first; wrangler records applied migrations in d1_migrations. Every statement
+-- is IF NOT EXISTS so re-applying to an existing database is a no-op.
 
 CREATE TABLE IF NOT EXISTS settings (
     key   TEXT PRIMARY KEY,
@@ -38,10 +39,11 @@ CREATE TABLE IF NOT EXISTS picks (
     PRIMARY KEY (game_id, user_id)
 );
 
--- Append-only audit log of every accepted button tap. `picks` keeps only the
--- current selection (last tap wins); this keeps the full history so a "I picked
--- the draw!" dispute can be settled by replaying exactly what was tapped, when.
--- Never UPDATEd or DELETEd. SQLite stamps created_utc server-side so the time
+-- Audit log of every accepted button tap. `picks` keeps only the current
+-- selection (last tap wins); this keeps the full history so a "I picked the
+-- draw!" dispute can be settled by replaying exactly what was tapped, when.
+-- Never UPDATEd. Rows leave only through /forgetme, which deletes everything the
+-- requesting user ever stored. SQLite stamps created_utc server-side so the time
 -- is the worker's, not a client clock.
 CREATE TABLE IF NOT EXISTS pick_events (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,

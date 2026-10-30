@@ -1,0 +1,18 @@
+# Copy to .dev.vars for local work (gitignored). The "Deploy to Cloudflare" button
+# asks for each of these at deploy time; by hand, set them with
+#   npx wrangler secret put <NAME>
+# All four come from https://discord.com/developers/applications.
+
+# Bot tab -> Reset Token. The one real secret: never commit it, never paste it in chat.
+DISCORD_TOKEN=
+
+# General Information -> Application ID
+DISCORD_APPLICATION_ID=
+
+# General Information -> Public Key. Every request from Discord is checked against it.
+DISCORD_PUBLIC_KEY=
+
+# Your server's id (Discord: Server Settings -> Widget, or right-click the server
+# with Developer Mode on). The bot answers only this server; slash commands are
+# registered to it.
+GUILD_ID=

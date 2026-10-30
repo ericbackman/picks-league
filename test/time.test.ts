@@ -1,4 +1,4 @@
-// The ET helpers moved out of tick.ts, plus the two the second Worker added.
+// The ET day helpers: the day boundary is load-bearing because cron is UTC.
 import { describe, expect, it } from "vitest";
 import { etParts, isCalendarDay, shiftDay } from "../src/time";
 import { etParts as fromTick } from "../src/tick";

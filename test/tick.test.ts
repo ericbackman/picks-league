@@ -96,8 +96,9 @@ describe("league specs", () => {
 });
 
 describe("sport boards (the pinned board + daily recap split)", () => {
-  // eric wins 2 WC games; dave wins 1 WC + 1 MLB. NHL isn't in SPORT_BOARDS.
-  // Bookie carries a benchmark score in each league.
+  // eric wins 2 WC games and 1 NHL; dave wins 1 WC + 1 MLB. A CFL row stands in
+  // for a league that is NOT in SPORT_BOARDS. Bookie carries a benchmark score
+  // in each league it picked.
   const rows: GradedRow[] = [
     { user_id: "1", user_name: "eric", side: "home", points: 2, winner: "home", league: "wc" },
     { user_id: "1", user_name: "eric", side: "away", points: 3, winner: "away", league: "wc" },
@@ -105,34 +106,36 @@ describe("sport boards (the pinned board + daily recap split)", () => {
     { user_id: "2", user_name: "dave", side: "home", points: 1, winner: "home", league: "mlb" },
     { user_id: "1", user_name: "eric", side: "away", points: null, winner: "home", league: "mlb" },
     { user_id: "1", user_name: "eric", side: "home", points: 1, winner: "home", league: "nhl" },
+    { user_id: "2", user_name: "dave", side: "home", points: 1, winner: "home", league: "cfl" },
     { user_id: BOOKIE_ID, user_name: "Bookie", side: "home", points: 5, winner: "home", league: "wc" },
     { user_id: BOOKIE_ID, user_name: "Bookie", side: "home", points: 4, winner: "home", league: "mlb" },
   ];
 
   it("builds one board per SPORT_BOARDS league, in order, humans only", () => {
     const boards = buildSportBoards(rows);
-    expect(boards.map((b) => b.label)).toEqual(["World Cup", "Baseball"]);
-    expect(boards[0].icon).toBe("⚽");
-    expect(boards[1].icon).toBe("⚾");
+    // SPORT_BOARDS order, minus NFL (no graded pick) and CFL (no board at all).
+    expect(boards.map((b) => b.label)).toEqual(["Hockey", "Baseball", "World Cup"]);
+    expect(boards.map((b) => b.icon)).toEqual(["🏒", "⚾", "⚽"]);
     // WC: eric (2+3=5 pts) over dave (1). Bookie is never a ranked row.
-    expect(boards[0].table.map((e) => e.name)).toEqual(["eric", "dave"]);
-    expect(boards[0].table[0].points).toBe(5);
+    const wc = boards[2];
+    expect(wc.table.map((e) => e.name)).toEqual(["eric", "dave"]);
+    expect(wc.table[0].points).toBe(5);
   });
 
   it("carries the Bookie's per-league points as the benchmark", () => {
     const boards = buildSportBoards(rows);
-    expect(boards[0].bookiePoints).toBe(5); // WC
+    expect(boards[2].bookiePoints).toBe(5); // WC
     expect(boards[1].bookiePoints).toBe(4); // MLB
+    expect(boards[0].bookiePoints).toBeUndefined(); // NHL: the Bookie never picked
   });
 
-  it("omits leagues not in SPORT_BOARDS (NHL) and leagues with no graded picks", () => {
-    // NHL has a graded pick but no board; drop MLB entirely -> only World Cup.
-    const wcOnly = rows.filter((r) => r.league === "wc");
-    expect(buildSportBoards(wcOnly).map((b) => b.label)).toEqual(["World Cup"]);
+  it("omits leagues not in SPORT_BOARDS (CFL) and leagues with no graded picks", () => {
+    const wcAndCfl = rows.filter((r) => r.league === "wc" || r.league === "cfl");
+    expect(buildSportBoards(wcAndCfl).map((b) => b.label)).toEqual(["World Cup"]);
   });
 
   it("renders a per-sport field with medals, points, and the benchmark", () => {
-    const field = sportBoardField(buildSportBoards(rows)[0]);
+    const field = sportBoardField(buildSportBoards(rows)[2]); // World Cup
     expect(field.name).toBe("⚽ World Cup");
     expect(field.inline).toBe(true);
     expect(field.value).toContain("🥇 eric 5 pts");

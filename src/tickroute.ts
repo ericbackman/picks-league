@@ -1,16 +1,11 @@
-// brick: the scheduler/src/tickroute.ts — canonical home; see the registry
+// The optional authenticated POST /tick route: an external scheduler can drive
+// the tick instead of the cron trigger. Why it exists: the Workers Free plan caps
+// cron triggers at 5 per ACCOUNT, so someone running several Workers may prefer
+// one scheduler Worker that fans out to each of them over a service binding.
+// Inert until the TICK_KEY secret is set; it fails CLOSED, never open.
 //
-// The authenticated POST /tick route that lets the scheduler drive this bot's cron
-// work. Byte-identical in every picks bot; fixes land at the canonical home
-// first, then sweep here.
-//
-// WHY: the Workers Free plan caps cron triggers at 5 per ACCOUNT. Four picks bots
-// each holding a */15 cron consumed almost the whole account. The hub keeps the
-// single cron and POSTs here instead.
-//
-// Answers 202 IMMEDIATELY and does the work in ctx.waitUntil, so the hub's
-// fan-out never waits on a slow tick, and each bot burns its own CPU/time budget
-// in its own invocation rather than the hub's.
+// Answers 202 IMMEDIATELY and does the work in ctx.waitUntil, so a caller never
+// waits on a slow tick and the work runs on this Worker's own CPU budget.
 
 /** Constant-time string compare, so the key can't be recovered by timing. */
 function secretsMatch(a: string, b: string): boolean {
