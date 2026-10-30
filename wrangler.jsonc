@@ -1,0 +1,31 @@
+{
+  // Cloudflare Workers config — https://developers.cloudflare.com/workers/wrangler/configuration/
+  "name": "picks",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-06-01",
+
+  // The idempotent tick: posts the day's slate after 10:00 ET, sweeps for
+  // finals. Crons are UTC and ET shifts with DST, so we fire every 15 minutes
+  // and let the tick decide (same design as the the original bot Python original).
+  // CRON REMOVED — the scheduler owns the single account-wide cron and POSTs /tick
+  // here every 15 min. The Workers Free plan caps cron triggers at 5 PER ACCOUNT
+  // and four picks bots were using four of them; see Github/AUTOMATION.md Layer 3
+  // and the scheduler/README.md. Do NOT re-add a cron here — it would consume a slot
+  // and double-tick this bot. If the scheduler is ever retired, restore the trigger.
+  "triggers": { "crons": [] },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "picks",
+      "database_id": "00000000-0000-0000-0000-000000000000"
+    }
+  ],
+
+  // Public identifiers — not secrets. DISCORD_TOKEN is a real secret:
+  //   npx wrangler secret put DISCORD_TOKEN
+  "vars": {
+    "DISCORD_APPLICATION_ID": "000000000000000000",
+    "DISCORD_PUBLIC_KEY": "0000000000000000000000000000000000000000000000000000000000000000",
+    "GUILD_ID": "000000000000000000"
+  }
+}

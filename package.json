@@ -1,0 +1,22 @@
+{
+  "name": "the private original",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "test": "vitest run",
+    "check": "tsc --noEmit",
+    "register": "node scripts/register.mjs",
+    "verify:migration": "vitest run --config vitest.verify.config.ts"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20260714.1",
+    "typescript": "^5.5.4",
+    "vitest": "^5.0.5",
+    "wrangler": "^4.100.0"
+  },
+  "overrides": {
+    "undici": "^7.30.1"
+  }
+}
