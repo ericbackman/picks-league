@@ -117,7 +117,7 @@ export function parseLeagueSpecs(raw: string): LeagueSpec[] {
 }
 
 export function unknownLeagues(specs: LeagueSpec[]): string[] {
-  return specs.map((s) => s.key).filter((key) => !(key in LEAGUES));
+  return specs.map((s) => s.key).filter((key) => !Object.hasOwn(LEAGUES, key));
 }
 
 export function filterGames(games: GameInfo[], spec: LeagueSpec): GameInfo[] {

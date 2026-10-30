@@ -81,6 +81,8 @@ describe("league specs", () => {
   it("flags unknown league keys", () => {
     expect(unknownLeagues(parseLeagueSpecs("nba xfl wc"))).toEqual(["xfl"]);
     expect(unknownLeagues(parseLeagueSpecs("nba nhl wc mlb:TOR"))).toEqual([]);
+    // Prototype keys are not leagues: "in" would have let these through.
+    expect(unknownLeagues(parseLeagueSpecs("constructor valueOf"))).toEqual(["constructor", "valueof"]);
   });
 
   it("filters games to the named teams", () => {
