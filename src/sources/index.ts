@@ -1,15 +1,13 @@
 // The data-source seam. Everything the tick needs from the outside world is two
 // calls: the day's games with their lines (to post the slate) and the day's games
 // with their results (to grade). A source answers both for one league key from
-// espn.ts LEAGUES, in the GameInfo shape, so tick.ts never knows which API it is
-// talking to.
-//
-// The default is The Odds API, which has published terms that allow API use, a
-// free tier and a key. ESPN's undocumented scoreboard stays as an opt-in for
-// people who have read the README's warning about its terms.
+// leagues.ts, in the GameInfo shape, so tick.ts never knows which API it is
+// talking to. One source ships: The Odds API, whose published terms allow
+// exactly this use. Another goes in this folder and in the switch below; its
+// terms go in the README first.
 
 import type { Env } from "../discord";
-import { fetchScoreboard, type GameInfo } from "../espn";
+import type { GameInfo } from "../leagues";
 import { OddsApiSource } from "./odds-api";
 
 export interface SportSource {
@@ -25,19 +23,7 @@ export interface SportSource {
   results(league: string, day: string): Promise<GameInfo[]>;
 }
 
-/** ESPN's public scoreboard: one call answers both questions. Opt-in. */
-export const espnSource: SportSource = {
-  name: "espn",
-  quotaBound: false,
-  slate: (league, day) => fetchScoreboard(league, yyyymmddOf(day)),
-  results: (league, day) => fetchScoreboard(league, yyyymmddOf(day)),
-};
-
-function yyyymmddOf(day: string): string {
-  return day.replaceAll("-", "");
-}
-
-export const SOURCE_NAMES = ["odds-api", "espn"] as const;
+export const SOURCE_NAMES = ["odds-api"] as const;
 
 /**
  * Pick the source from DATA_SOURCE. Fails loudly on a name nobody wrote and on
@@ -52,13 +38,11 @@ export function sourceFor(env: Pick<Env, "DATA_SOURCE" | "ODDS_API_KEY" | "ODDS_
       if (!key) {
         throw new Error(
           "ODDS_API_KEY is not set. Get a free key at https://the-odds-api.com and " +
-            "`npx wrangler secret put ODDS_API_KEY`, or set DATA_SOURCE=espn (read the README first)."
+            "`npx wrangler secret put ODDS_API_KEY`."
         );
       }
       return new OddsApiSource(key, env.ODDS_API_BOOKMAKERS);
     }
-    case "espn":
-      return espnSource;
     default:
       throw new Error(`DATA_SOURCE=${name} is not one of: ${SOURCE_NAMES.join(", ")}`);
   }

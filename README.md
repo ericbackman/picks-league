@@ -87,13 +87,11 @@ npx wrangler secret put ODDS_API_KEY
 
 **Leagues** are a live setting, changed with `/picksetup`, not a redeploy. The value is whitespace-separated: `nba` takes the whole league, `mlb:jays` only games involving a team whose name contains that word, `mlb:jays+yankees` several teams. Default: `nba nhl mlb nfl`. Keys: `nba`, `nhl`, `mlb`, `nfl`, `wc` (FIFA World Cup, with a Draw button). A full MLB day is about 15 games; filter it if that floods your channel.
 
-**Grading schedule.** Because every call to The Odds API spends credits, the bot grades on a schedule rather than every 15 minutes: `GRADE_HOURS` is a list of Eastern hours, default `6`, so results and the recap land each morning. `6 23` adds an evening sweep for most games, which with four leagues in season is about 600 credits a month, so it wants the $30 plan or fewer leagues. `*` grades every tick, for a paid plan or the ESPN source. Set it in `wrangler.jsonc` under `vars`.
+**Grading schedule.** Because every call to The Odds API spends credits, the bot grades on a schedule rather than every 15 minutes: `GRADE_HOURS` is a list of Eastern hours, default `6`, so results and the recap land each morning. `6 23` adds an evening sweep for most games, which with four leagues in season is about 600 credits a month, so it wants the $30 plan or fewer leagues. `*` grades every tick, for a paid plan. Set it in `wrangler.jsonc` under `vars`.
 
 **Bookmaker.** Lines come from the first US bookmaker in the response. `ODDS_API_BOOKMAKERS` (comma-separated keys from The Odds API's bookmaker list, for example `fanduel,draftkings`) names a preference order instead. Up to ten still cost one credit per call.
 
-**Data source.** `DATA_SOURCE=espn` switches to ESPN's public scoreboard endpoint instead of The Odds API. It needs no key and no quota, carries team abbreviations and logos, and grades every 15 minutes. Read the warning under Known limits before choosing it: it is undocumented, and ESPN's terms do not permit automated access.
-
-**Team logos** are off by default, and only the ESPN source carries them: cards are text. Setting the `TEAM_LOGOS` variable to `on` (in `wrangler.jsonc` under `vars`, or as a secret) adds the two teams' logos, which are the leagues' and clubs' marks and artwork, hosted on ESPN's CDN and fetched by Discord's image proxy. Whether to show them is your choice as the operator; the bot holds no licence for them.
+**Data source.** Only The Odds API ships. The seam in `src/sources/` takes another; add its terms to this README before its code.
 
 **Slate time.** `SLATE_HOUR` in `src/tick.ts` (default 6, Eastern) is the earliest hour the day's slate posts.
 
@@ -103,7 +101,7 @@ npx wrangler secret put ODDS_API_KEY
 
 ## Scoring
 
-A correct pick scores its fair decimal odds, the way a one-unit bet would pay. The moneylines ESPN publishes with each game are stripped of the bookmaker's margin into fair probabilities ([src/odds.ts](src/odds.ts)), and a winning pick scores `1 / p`, to one decimal, capped at 10, with 2.0 as the coin-flip fallback when no line exists. The card shows each side's line, win probability and score, and the number shown is exactly what the pick scores. Soccer's three-way market is handled.
+A correct pick scores its fair decimal odds, the way a one-unit bet would pay. The moneylines published with each game are stripped of the bookmaker's margin into fair probabilities ([src/odds.ts](src/odds.ts)), and a winning pick scores `1 / p`, to one decimal, capped at 10, with 2.0 as the coin-flip fallback when no line exists. The card shows each side's line, win probability and score, and the number shown is exactly what the pick scores. Soccer's three-way market is handled.
 
 `pointsFor()` in [src/scoring.ts](src/scoring.ts) is the tuning seam. It is pure, deterministic, finite and non-negative, and the tests pin that contract, so a cap, league weights or playoff multipliers are safe to add there.
 
@@ -111,12 +109,12 @@ A correct pick scores its fair decimal odds, the way a one-unit bet would pay. T
 
 What the bot stores, in your own D1 database:
 
-- per game: the ESPN game id, teams, start time, lines, scores, the message id of its card;
+- per game: the source's game id, teams, start time, lines, scores, the message id of its card;
 - per pick: the player's Discord user id and display name, the side, the points once graded;
 - an audit log of every tap (user id, side, server timestamp; no name), so a "but I picked the draw!" dispute can be settled by replaying what was tapped and when;
 - the id of each player's private DM card.
 
-Discord also holds what the bot posts: display names on the standings, recaps and finished game cards in your channel, and each player's pick card in their DMs. Your Cloudflare Workers logs keep error lines for a few days (3 on the free plan, 7 on paid); the bot writes no names or ids into them. ESPN receives only the date and league being asked for. No analytics and no service beyond Discord, ESPN's scoreboard and Cloudflare itself.
+Discord also holds what the bot posts: display names on the standings, recaps and finished game cards in your channel, and each player's pick card in their DMs. Your Cloudflare Workers logs keep error lines for a few days (3 on the free plan, 7 on paid); the bot writes no names or ids into them, and redacts Discord's ids from the errors it logs. The Odds API (the-odds-api.com, operated from Australia) receives your key, the sport and a date range, never anything about a player. No analytics and no service beyond Discord, The Odds API and Cloudflare itself.
 
 Data is kept until a player runs `/forgetme` or you delete the database. `/forgetme` deletes the player's picks, audit-log rows and DM pick cards (the messages too) and refreshes the standings; names already on finished game cards and past recaps stay, like any channel history. A player who has left the server asks you, and [docs/OPERATIONS.md](docs/OPERATIONS.md) has the recipe. [PRIVACY.example.md](PRIVACY.example.md) says all of this in a form you can publish.
 
@@ -125,12 +123,12 @@ If you run this for a business, a monetised community or a large public server r
 ## Known limits
 
 - **The Odds API is metered.** When the month's credits run out, slates and grading stop with `OUT_OF_USAGE_CREDITS` in the logs until the credits reset; nothing is lost, the next sweep catches up. Its scores endpoint reaches back three days, so a game with no result after 72 hours is voided (nobody scores) rather than holding the day open forever. Its terms allow displaying the data in an app, and forbid reselling it as a data product; this bot does neither.
-- **The ESPN option is undocumented, and ESPN's terms are not permissive.** `DATA_SOURCE=espn` uses an endpoint with no key, no terms page and no change notice; if ESPN reshapes the payload, grading stalls and the logs say which league. More important: espn.com is covered by the [Disney Terms of Use](https://disneytermsofuse.com/english/), which grant personal, non-commercial use only and bar automated access. Whether those terms reach this endpoint is not settled anywhere public. A deployment that chooses it makes those calls under its operator's own responsibility. That is why it is not the default.
+- **No team logos, no abbreviations.** Cards show the teams' full names as The Odds API gives them. League and club logos are their owners' marks, and this bot ships none.
 - **One server per deployment**, by design. With `GUILD_ID` set, the Worker ignores interactions from any other server, and slash commands are registered to that server only. Running it for two servers is two deployments.
 - **Everything is Eastern Time**, because that is how North American sports schedules are published. A game's "day" is its ET calendar day.
 - **Free-tier numbers.** The tick makes a handful of requests every 15 minutes (none to The Odds API outside the slate and the scheduled sweeps), and each game card is one message with pacing between them. That is well under the free plan's 100,000 requests a day. A busy spring day with three leagues can pass the 50 subrequests one invocation may make; the rest post on the next tick. D1 holds a few thousand games and tens of thousands of picks a season with all four leagues, far under its 500 MB.
 
-picks-league is an independent project, not affiliated with or endorsed by Discord, The Odds API, ESPN, Cloudflare, the NBA, NHL, MLB, NFL, FIFA or any team. Team names and logos belong to their owners.
+picks-league is an independent project, not affiliated with or endorsed by Discord, The Odds API, Cloudflare, any bookmaker, the NBA, NHL, MLB, NFL, FIFA or any team. Team names and logos belong to their owners.
 
 ## Development
 
@@ -141,7 +139,7 @@ npx wrangler dev  # local Worker; Discord cannot reach it, so it is for the tick
 npx wrangler tail # live logs from the deployed Worker
 ```
 
-Parsing, time math, scoring and the store are pure and tested; the Discord and ESPN calls are the thin shell around them. Operating a live deployment, including what each failure looks like in the logs, is in [docs/OPERATIONS.md](docs/OPERATIONS.md).
+Parsing, time math, scoring and the store are pure and tested; the Discord and data-source calls are the thin shell around them. Operating a live deployment, including what each failure looks like in the logs, is in [docs/OPERATIONS.md](docs/OPERATIONS.md).
 
 ## License
 

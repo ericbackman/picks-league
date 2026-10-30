@@ -16,7 +16,7 @@ import {
   verifyDiscordRequest,
   type Env,
 } from "./discord";
-import { LEAGUES } from "./espn";
+import { LEAGUES } from "./leagues";
 import { Store } from "./store";
 import {
   dayCardEmbed,

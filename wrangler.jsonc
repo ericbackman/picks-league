@@ -18,7 +18,7 @@
   // Everything the Worker needs from Discord, and The Odds API key, are secrets
   // (see .dev.vars.example), so one config file serves every deployment.
   // Optional vars, each explained in the README's Configuration section:
-  //   "vars": { "GRADE_HOURS": "6 23", "ODDS_API_BOOKMAKERS": "fanduel", "DATA_SOURCE": "espn", "TEAM_LOGOS": "on" }
+  //   "vars": { "GRADE_HOURS": "6 23", "ODDS_API_BOOKMAKERS": "fanduel" }
   // Optional secret: TICK_KEY, the authenticated POST /tick route for an external scheduler.
   "observability": { "enabled": true }
 }

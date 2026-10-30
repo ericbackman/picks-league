@@ -46,12 +46,13 @@ const commands = [
       {
         type: 3, // STRING
         name: "leagues",
-        description: "e.g. nba nhl mlb:TOR — leagues, or league:TEAM to filter (default: nba nhl mlb nfl)",
+        description: "e.g. nba nhl mlb:jays — leagues, or league:TEAM to filter by name (default: nba nhl mlb nfl)",
         required: false,
       },
     ],
   },
-  { name: "slate", description: "Post today's games now" },
+  // Manage Server: a slate fetch spends the operator's data credits.
+  { name: "slate", description: "Post today's games now", default_member_permissions: MANAGE_GUILD },
   { name: "leaderboard", description: "Season standings" },
   { name: "mypicks", description: "Your picks for today (only you see this)" },
   { name: "forgetme", description: "Delete your picks, tap history and DM cards here (asks you to confirm)" },

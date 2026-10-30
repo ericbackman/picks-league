@@ -3,8 +3,8 @@
 A serverless Discord picks league: Cloudflare Worker + D1, TypeScript, no runtime
 dependencies. Discord delivers interactions as signed HTTP POSTs; a cron trigger
 runs an idempotent tick that posts the day's slate and grades finals, with games,
-lines and results from The Odds API by default (ESPN's scoreboard is opt-in). README.md is the user-facing document; docs/OPERATIONS.md is
-the runbook for a live deployment.
+lines and results from The Odds API. README.md is the user-facing document;
+docs/OPERATIONS.md is the runbook for a live deployment.
 
 ## Structure
 
@@ -13,8 +13,8 @@ src/
   index.ts      # fetch (POST /interactions: PING, commands, buttons; optional POST /tick) + scheduled (cron)
   tick.ts       # idempotent tick: slate after SLATE_HOUR ET, grading sweep, recap, pinned board
   time.ts       # ET day helpers, pure
-  sources/      # the data-source seam: index.ts (SportSource, sourceFor), odds-api.ts (default, metered)
-  espn.ts       # ESPN public scoreboard fetch + pure parsing; the opt-in source, and the LEAGUES table
+  leagues.ts    # the league keys, icons, draw rule and the GameInfo shape every source returns
+  sources/      # the data-source seam: index.ts (SportSource, sourceFor), odds-api.ts (the one shipped, metered)
   odds.ts       # moneyline -> fair probability -> payout, pure
   scoring.ts    # pointsFor (the tuning seam) + standings, pure
   store.ts      # every D1 query; the only module that knows the schema

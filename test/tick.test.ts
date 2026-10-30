@@ -2,12 +2,11 @@
 // league-spec parsing/filtering.
 
 import { describe, expect, it } from "vitest";
-import type { GameInfo } from "../src/espn";
+import type { GameInfo } from "../src/leagues";
 import {
   BOOKIE_ID,
   buildSportBoards,
   gradeDue,
-  teamLogosEnabled,
   etParts,
   filterGames,
   fmtEt,
@@ -50,7 +49,7 @@ describe("formatting", () => {
     expect(prettyDay("2026-06-12")).toBe("Friday, June 12");
   });
 
-  it("compacts days for ESPN", () => {
+  it("compacts a day to YYYYMMDD", () => {
     expect(yyyymmdd("2026-06-12")).toBe("20260612");
   });
 
@@ -160,16 +159,6 @@ describe("sport boards (the pinned board + daily recap split)", () => {
     const humanWc = rows.filter((r) => r.user_id !== BOOKIE_ID && r.league === "wc");
     const field = sportBoardField(buildSportBoards(humanWc)[0]);
     expect(field.value).not.toContain("to beat");
-  });
-});
-
-describe("teamLogosEnabled", () => {
-  it("is off unless TEAM_LOGOS is exactly on", () => {
-    expect(teamLogosEnabled({})).toBe(false);
-    expect(teamLogosEnabled({ TEAM_LOGOS: "off" })).toBe(false);
-    expect(teamLogosEnabled({ TEAM_LOGOS: "yes" })).toBe(false);
-    expect(teamLogosEnabled({ TEAM_LOGOS: "on" })).toBe(true);
-    expect(teamLogosEnabled({ TEAM_LOGOS: " ON " })).toBe(true);
   });
 });
 

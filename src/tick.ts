@@ -13,7 +13,7 @@ import {
   type Env,
 } from "./discord";
 import { EMBED_COLOR } from "./brand";
-import { DRAW_LEAGUES, LEAGUE_ICONS, LEAGUES, type GameInfo } from "./espn";
+import { DRAW_LEAGUES, LEAGUE_ICONS, LEAGUES, type GameInfo } from "./leagues";
 import { sourceFor } from "./sources";
 import { fairProbs, favoriteSide, fmtMl, fmtPct, payoutFor, type MlGame } from "./odds";
 import {
@@ -46,16 +46,10 @@ export const VOID_AFTER_HOURS = 72;
 // per-channel message rate limit (rest() still retries a 429 beneath us).
 const POST_SPACING_MS = 300;
 
-// Shared `url` base for a game's embeds — Discord renders same-url embeds as ONE
-// embed with their images in a side-by-side grid, which is how a matchup card
-// shows both team logos. Never actually served as a page; per-game uniqueness is
-// all that matters, so the host is a reserved name that resolves to nothing.
-const GAME_URL_BASE = "https://example.com/picks-league/game";
-
 // Per-sport sections shown on BOTH the pinned standings board and the daily
 // recap, in display order.
 // THE SEAM: add a league here to give it its own board. The `league` must be a
-// key in espn.ts LEAGUES (so it has an icon). A league with no graded pick yet
+// key in leagues.ts LEAGUES (so it has an icon). A league with no graded pick yet
 // is omitted from the board, so listing a sport out of season costs nothing.
 export const SPORT_BOARDS: { league: string; label: string }[] = [
   { league: "nba", label: "Basketball" },
@@ -225,26 +219,10 @@ export function gameButtons(game: GameInfo): object[] {
   return [{ type: 1, components: buttons }]; // type 1 = action row
 }
 
-// A game as a two-logo matchup card: one or two embeds sharing the same `url`,
-// which Discord renders as a SINGLE embed with the logos in a side-by-side grid
-// with the buttons beneath. Logo order matches the text and
-// buttons: draw leagues read "Home vs Away" (home left), the NA sports
-// "Away @ Home" (away left). A side with no logo drops out of the grid; with
-// neither, the card is the text line alone. `extra` carries the crowd tally.
+// A game card: one embed with the matchup line and the odds, buttons beneath.
+// `extra` carries the crowd tally.
 export function gameEmbeds(info: GameInfo, extra?: string): object[] {
-  const url = `${GAME_URL_BASE}/${info.gameId}`;
-  const [leftLogo, rightLogo] = DRAW_LEAGUES.has(info.league)
-    ? [info.homeLogo, info.awayLogo]
-    : [info.awayLogo, info.homeLogo];
-  const lead: Record<string, unknown> = {
-    url,
-    description: gameLine(info) + (extra ? `\n${extra}` : ""),
-    color: EMBED_COLOR,
-  };
-  if (leftLogo) lead.image = { url: leftLogo };
-  const embeds: object[] = [lead];
-  if (rightLogo) embeds.push({ url, image: { url: rightLogo } });
-  return embeds;
+  return [{ description: gameLine(info) + (extra ? `\n${extra}` : ""), color: EMBED_COLOR }];
 }
 
 // Rehydrate a stored row into the GameInfo shape so the slate renderers
@@ -258,8 +236,6 @@ function rowToGameInfo(g: GameRow): GameInfo {
     home: g.home,
     awayName: g.away_name,
     homeName: g.home_name,
-    awayLogo: g.away_logo,
-    homeLogo: g.home_logo,
     state: g.graded ? "post" : "pre",
     completed: g.graded === 1,
     awayScore: g.away_score,
@@ -332,8 +308,7 @@ export async function refreshGameTally(env: Env, store: Store, gameId: string): 
   const tally = tallyLine(game, await store.picksForGame(gameId));
   try {
     await editMessage(env, channelId, game.message_id, {
-      // content:"" clears any pre-embed text rendering (a game posted by the old
-      // text-only code) so it isn't shown above the logo card.
+      // content:"" clears any text above the card.
       content: "",
       embeds: gameEmbeds(info, tally || undefined),
       components: gameButtons(info),
@@ -514,15 +489,6 @@ export async function updateLeaderboard(env: Env, store: Store, channelId: strin
 // ---------- slate posting ----------
 
 /**
- * Team logos are opt-in (TEAM_LOGOS=on). They are the leagues' and clubs' marks,
- * hosted by ESPN; showing them is the operator's choice. Off, the URLs are never
- * stored either.
- */
-export function teamLogosEnabled(env: Pick<Env, "TEAM_LOGOS">): boolean {
-  return (env.TEAM_LOGOS ?? "off").trim().toLowerCase() === "on";
-}
-
-/**
  * Post the day's games — idempotent top-up: games already posted (a stored
  * message_id) are skipped, so re-running after a mid-day /picksetup change
  * posts only what's new. Returns how many game messages were posted.
@@ -543,14 +509,8 @@ export async function postSlate(env: Env, store: Store, channelId: string, day: 
     }
   }
   const games = [...byId.values()];
-  if (!teamLogosEnabled(env)) {
-    for (const g of games) {
-      g.awayLogo = null;
-      g.homeLogo = null;
-    }
-  }
   if (!games.length) {
-    // Mark empty days handled — don't re-ask ESPN all day.
+    // Mark empty days handled — don't re-ask the source all day.
     await store.setSetting("last_slate_day", day);
     console.log(`no games on ${day}`);
     return 0;
@@ -602,7 +562,7 @@ export async function postSlate(env: Env, store: Store, channelId: string, day: 
     }
   }
   fresh.sort((a, b) => a.startUtc.localeCompare(b.startUtc));
-  // Post each game as its own logo card. Per-game try/catch + pacing so one
+  // Post each game as its own card. Per-game try/catch + pacing so one
   // rate-limited post can't abort the rest; rest() already retries 429s beneath us.
   let postedCount = 0;
   for (const game of fresh) {
@@ -610,8 +570,8 @@ export async function postSlate(env: Env, store: Store, channelId: string, day: 
       game.state === "pre"
         ? { embeds: gameEmbeds(game), components: gameButtons(game) }
         : {
-            // Already underway when first seen — no pick to make, so no logos,
-            // just the compact line (grading will overwrite it with the final).
+            // Already underway when first seen — no pick to make, so just the
+            // compact line (grading will overwrite it with the final).
             embeds: [
               { description: gameLine(game) + "  ·  🔒 already started", color: EMBED_COLOR },
             ],
@@ -694,9 +654,8 @@ async function editFinalMessage(env: Env, channelId: string, game: GameRow, pick
     const callers = picks.filter((p) => p.side === game.winner).map((p) => p.user_name);
     line += callers.length ? `\n🎯 ${callers.join(", ")}` : "\n🎯 nobody saw it coming";
   }
-  // Replace the two-logo matchup card (and clear the now-dead buttons) with a
-  // compact text final — results are permanent channel history, and the logos'
-  // job (help you pick) ends when the game does.
+  // Replace the card (and clear the now-dead buttons) with a compact text
+  // final: results are permanent channel history.
   try {
     await editMessage(env, channelId, game.message_id, {
       content: "",

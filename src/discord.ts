@@ -14,12 +14,8 @@ export interface Env {
   // well as) the cron trigger. Optional in the type so the bot typechecks before
   // it is set, but the route fails CLOSED while it is missing (see tickroute.ts).
   TICK_KEY?: string;
-  // Optional var: "on" adds the teams' logos (ESPN-hosted, the leagues' marks)
-  // to game cards. Unset or anything else = text-only cards (README, "Team logos").
-  // Only the ESPN source carries logos.
-  TEAM_LOGOS?: string;
-  // Where games, lines and results come from: "odds-api" (default, needs
-  // ODDS_API_KEY) or "espn" (opt-in; see the README on ESPN's terms). sources/index.ts.
+  // Where games, lines and results come from. "odds-api" (the default and the
+  // only one shipped; needs ODDS_API_KEY). See sources/index.ts.
   DATA_SOURCE?: string;
   ODDS_API_KEY?: string; // secret: npx wrangler secret put ODDS_API_KEY
   // Optional: comma-separated bookmaker keys to take lines from, in order of
@@ -136,8 +132,9 @@ async function rest(
     return rest(env, method, path, body, attempt + 1);
   }
   // The error text reaches Workers Logs. A webhook path carries the interaction
-  // token (valid 15 minutes), so it is redacted before it can be logged.
-  const safePath = path.replace(/^(\/webhooks\/\d+\/)[^/]+/, "$1<token>");
+  // token (valid 15 minutes) and every path carries Discord ids (a DM channel id
+  // points at a person), so both are redacted before the error can be logged.
+  const safePath = path.replace(/^(\/webhooks\/\d+\/)[^/]+/, "$1<token>").replace(/\d{15,}/g, "<id>");
   throw new Error(
     `Discord ${method} ${safePath}: HTTP ${resp.status} ${await resp.text().catch(() => "")}`
   );

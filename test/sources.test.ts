@@ -2,7 +2,7 @@
 // API's two pure parsers plus its credit accounting, against fixtures in the
 // shape its v4 guide documents (opened 2026-10-30).
 import { describe, expect, it } from "vitest";
-import { espnSource, sourceFor } from "../src/sources";
+import { sourceFor } from "../src/sources";
 import {
   daysBetween,
   OddsApiSource,
@@ -84,7 +84,6 @@ describe("parseOddsEvents", () => {
       homeMl: 140,
       awayMl: -165,
       drawMl: null,
-      awayLogo: null,
     });
     expect(lal).toMatchObject({ homeMl: null, awayMl: null });
   });
@@ -266,9 +265,8 @@ describe("sourceFor", () => {
     expect(sourceFor({ ODDS_API_KEY: "k" }).quotaBound).toBe(true);
   });
 
-  it("switches to ESPN only when asked, and refuses names nobody wrote", () => {
-    expect(sourceFor({ DATA_SOURCE: "espn" })).toBe(espnSource);
-    expect(espnSource.quotaBound).toBe(false);
+  it("refuses a source name nobody wrote", () => {
     expect(() => sourceFor({ DATA_SOURCE: "yahoo" })).toThrow(/DATA_SOURCE=yahoo/);
+    expect(() => sourceFor({ DATA_SOURCE: "espn" })).toThrow(/DATA_SOURCE=espn/);
   });
 });

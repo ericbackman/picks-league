@@ -23,7 +23,7 @@ export interface ScorableGame extends MlGame {
  * here — they always score 0.
  *
  * A correct pick scores its fair decimal odds, like a
- * 1-unit bet — vig-stripped from the stored moneylines ESPN's scoreboard carries
+ * 1-unit bet — vig-stripped from the stored moneylines the data source published
  * (home_ml/away_ml/draw_ml), capped at 10, coin-flip 2.0 when no market
  * exists. The payout shown on the slate IS this number, so keep display
  * and scoring in sync (both call payoutFor).

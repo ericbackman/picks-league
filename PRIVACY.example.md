@@ -19,8 +19,8 @@ It reads nothing else from Discord: no roles, avatar, messages or join date.
 - **The operator's Cloudflare D1 database**, encrypted at rest by Cloudflare.
 - **This Discord server:** the standings board, daily recaps and finished game cards show display names and results. They are ordinary channel messages.
 - **Your DMs:** your daily pick card.
-- **Cloudflare Workers logs:** the operator's logs keep error lines for a few days (3 on the free plan, 7 on paid). They contain no names or ids by design, except what Discord's own error replies carry.
-- **The Odds API** (the-odds-api.com, operated in Australia): the bot asks it for each day's games, lines and scores. It sends only the sport and a date range, never anything about you. An operator who switched to the ESPN option instead sends the same to ESPN, and if they turned team logos on, Discord's image proxy fetches those from ESPN's servers; your device contacts neither.
+- **Cloudflare Workers logs:** the operator's logs keep error lines for a few days (3 on the free plan, 7 on paid). They contain no names and no Discord ids by design: the bot redacts ids from the errors it logs.
+- **The Odds API** (the-odds-api.com, operated in Australia): the bot asks it for each day's games, lines and scores. It sends only the sport and a date range, never anything about you; your device never contacts it.
 
 No analytics, no advertising, no other service.
 

@@ -1,7 +1,7 @@
 // D1 persistence. D1 is SQLite; ids are TEXT because Discord snowflakes don't
 // fit safely in JS numbers.
 
-import type { GameInfo } from "./espn";
+import type { GameInfo } from "./leagues";
 
 export interface GameRow {
   game_id: string;
@@ -11,8 +11,6 @@ export interface GameRow {
   home: string;
   away_name: string;
   home_name: string;
-  away_logo: string | null; // ESPN CDN logo URLs — shown on the matchup card
-  home_logo: string | null;
   start_utc: string;
   odds: string | null;
   home_ml: number | null;
@@ -90,12 +88,10 @@ export class Store {
     if (!games.length) return;
     const stmt = this.db.prepare(
       "INSERT INTO games(game_id, league, day, away, home, away_name, " +
-        "home_name, away_logo, home_logo, start_utc, odds, home_ml, away_ml, draw_ml) " +
-        "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?) " +
+        "home_name, start_utc, odds, home_ml, away_ml, draw_ml) " +
+        "VALUES(?,?,?,?,?,?,?,?,?,?,?,?) " +
         "ON CONFLICT(game_id) DO UPDATE SET " +
         "start_utc = excluded.start_utc, " +
-        "away_logo = COALESCE(excluded.away_logo, games.away_logo), " +
-        "home_logo = COALESCE(excluded.home_logo, games.home_logo), " +
         "odds = COALESCE(excluded.odds, games.odds), " +
         "home_ml = COALESCE(excluded.home_ml, games.home_ml), " +
         "away_ml = COALESCE(excluded.away_ml, games.away_ml), " +
@@ -105,7 +101,7 @@ export class Store {
       games.map((g) =>
         stmt.bind(
           g.gameId, g.league, day, g.away, g.home, g.awayName, g.homeName,
-          g.awayLogo, g.homeLogo, g.startUtc, g.odds, g.homeMl, g.awayMl, g.drawMl
+          g.startUtc, g.odds, g.homeMl, g.awayMl, g.drawMl
         )
       )
     );

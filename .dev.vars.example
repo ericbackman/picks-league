@@ -19,5 +19,5 @@ DISCORD_PUBLIC_KEY=
 GUILD_ID=
 
 # The Odds API key (free Starter plan, 500 credits a month, sent by email on
-# sign-up). Games, lines and results come from it unless DATA_SOURCE=espn.
+# sign-up). Games, lines and results come from it.
 ODDS_API_KEY=

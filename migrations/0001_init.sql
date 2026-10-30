@@ -15,11 +15,9 @@ CREATE TABLE IF NOT EXISTS games (
     home       TEXT NOT NULL,
     away_name  TEXT NOT NULL,
     home_name  TEXT NOT NULL,
-    away_logo  TEXT,                     -- ESPN CDN logo URLs; NULL = no logo on the card
-    home_logo  TEXT,
     start_utc  TEXT NOT NULL,
-    odds       TEXT,                     -- ESPN summary line, e.g. "PIT -149"
-    home_ml    INTEGER,                  -- American moneylines from ESPN's scoreboard odds provider
+    odds       TEXT,                     -- an optional one-line summary a source may provide
+    home_ml    INTEGER,                  -- American moneylines, as the data source published them
     away_ml    INTEGER,
     draw_ml    INTEGER,                  -- soccer three-way market only
     message_id TEXT,

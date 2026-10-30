@@ -8,7 +8,7 @@
 // x-requests-remaining and this file logs it, so running low is visible before
 // it is a failure.
 
-import { DRAW_LEAGUES, type GameInfo } from "../espn";
+import { DRAW_LEAGUES, type GameInfo } from "../leagues";
 import { etDayBoundsUtc, etParts, shiftDay } from "../time";
 import type { SportSource } from "./index";
 
@@ -140,8 +140,6 @@ function base(ev: any, league: string, now: Date): Omit<GameInfo, "completed" | 
     home,
     awayName: away,
     homeName: home,
-    awayLogo: null,
-    homeLogo: null,
     state: Date.parse(start) > now.getTime() ? "pre" : "in",
     odds: null,
     homeMl: null,
